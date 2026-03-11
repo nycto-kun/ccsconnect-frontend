@@ -1,0 +1,224 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --bg-color: #f0f2f5;
+    --card-bg: #ffffff;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --primary-blue: #334155;
+    --border-color: #e2e8f0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    width: 100%;
+}
+
+.container {
+    width: 100%;
+    max-width: 420px;
+    padding: 20px;
+    text-align: center;
+}
+
+.header h1 {
+    color: var(--text-main);
+    margin-bottom: 8px;
+    font-size: 40px;
+}
+
+.header p {
+    color: var(--text-muted);
+    margin-bottom: 24px;
+}
+
+.login-card {
+    background: var(--card-bg);
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+.icon-header {
+    margin-bottom: 24px;
+}
+
+.mail-icon {
+    background: #334155;
+    color: white;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    margin: 0 auto 15px;
+    font-size: 30px;
+}
+
+.input-group {
+    text-align: left;
+    margin-bottom: 18px;
+}
+
+.input-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-main);
+}
+
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-wrapper input {
+    width: 100%;
+    padding: 12px 40px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #fcfaf7;
+    font-size: 14px;
+}
+
+.input-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+}
+
+.toggle-icon {
+    position: absolute;
+    right: 15px;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 14px;
+    background: #334155;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.submit-btn:hover {
+    background-color: #1e293b;
+    transform: translateY(-1px);
+    transition: all 0.2s;
+}
+
+.footer-links {
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+.forgot-link {
+    display: block;
+    color: var(--primary-blue);
+    text-decoration: none;
+    margin-bottom: 20px;
+}
+
+.signup-link {
+    font-weight: bold;
+    color: var(--text-main);
+    text-decoration: none;
+}
+
+.instruction-text {
+    font-size: 14px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+.remember-me-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: 13px;
+}
+
+.remember-me-row a {
+    color: var(--text-muted);
+    text-decoration: none;
+}
+
+.role-selector, .role-switcher {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+.role-btn {
+    padding: 10px 25px;
+    border-radius: 25px;
+    border: 2px solid var(--border-color);
+    background: #fff;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.role-btn.active {
+    background: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+    box-shadow: 0 4px 10px rgba(51, 65, 85, 0.2);
+}
+
+.otp-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.otp-box {
+    width: 45px;
+    height: 55px;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.otp-box:focus {
+    border-color: var(--primary-blue);
+    outline: none;
+    background: #fff;
+}
+
+.helper-text {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 5px;
+    display: block;
+}
+
+.hidden {
+    display: none !important;
+}
