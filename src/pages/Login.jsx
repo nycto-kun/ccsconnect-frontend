@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
 const Login = () => {
@@ -9,6 +10,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleRoleClick = (selectedRole) => setRole(selectedRole);
 
@@ -18,10 +20,11 @@ const Login = () => {
     try {
       const response = await api.post('/auth/login', { email, password });
       const { access_token, user_id, role: userRole } = response.data;
-      localStorage.setItem('access_token', access_token);
-      localStorage.setItem('user_id', user_id);
-      localStorage.setItem('user_role', userRole);
-
+      // Fetch full user details
+      const userRes = await api.get('/auth/me', {
+        headers: { Authorization: `Bearer ${access_token}` }
+      });
+      login(access_token, userRes.data);
       // Redirect based on role
       if (userRole === 'student') navigate('/dashboard/student');
       else if (userRole === 'company') navigate('/dashboard/company');

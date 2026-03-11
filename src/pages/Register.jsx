@@ -11,6 +11,7 @@ const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
   const navigate = useNavigate();
 
   const handleRoleSwitch = (newRole) => setRole(newRole);
@@ -25,9 +26,8 @@ const Register = () => {
         full_name: fullName,
         role: role.toLowerCase(),
       };
-      const response = await api.post('/auth/register', userData);
-      alert('Registration successful! Please log in.');
-      navigate('/login');
+      await api.post('/auth/register', userData);
+      setRegistered(true);
     } catch (error) {
       console.error('Registration failed', error);
       alert('Registration failed. ' + (error.response?.data?.detail || 'Try again.'));
@@ -35,6 +35,24 @@ const Register = () => {
       setLoading(false);
     }
   };
+
+  if (registered) {
+    return (
+      <div className="container">
+        <div className="login-card" style={{ textAlign: 'center' }}>
+          <div className="icon-header">
+            <div className="mail-icon"><i className="fa-solid fa-envelope"></i></div>
+            <h2>Verify Your Email</h2>
+          </div>
+          <p className="instruction-text">
+            We've sent a confirmation email to <strong>{email}</strong>.<br />
+            Please check your inbox and click the link to verify your account.
+          </p>
+          <p>After verification, you can <Link to="/login">log in</Link>.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container">

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import MainLayout from './layouts/MainLayout';
-import ProtectedRoute from './components/ProtectedRoute';
+import PrivateRoute from './components/PrivateRoute';
 
 // Pages
 import Home from './pages/Home';
@@ -17,44 +18,66 @@ import AdminDashboard from './pages/AdminDashboard';
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public routes with layout */}
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
-          <Route path="opportunities" element={<Opportunities />} />
-          <Route path="notices" element={<Notices />} />
-        </Route>
+      <AuthProvider>
+        <Routes>
+          {/* Public routes with layout */}
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<Home />} />
+            <Route path="opportunities" element={<Opportunities />} />
+            <Route path="notices" element={<Notices />} />
+          </Route>
 
-        {/* Auth routes (no layout) */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+          {/* Auth routes (no layout) */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* Protected routes */}
-        <Route path="/notifications" element={
-          <ProtectedRoute allowedRoles={['student', 'company']}>
-            <Notifications />
-          </ProtectedRoute>
-        } />
+          {/* Protected routes */}
+          <Route
+            path="/notifications"
+            element={
+              <PrivateRoute allowedRoles={['student', 'company']}>
+                <MainLayout>
+                  <Notifications />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
 
-        <Route path="/dashboard/student" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <StudentDashboard />
-          </ProtectedRoute>
-        } />
+          <Route
+            path="/dashboard/student"
+            element={
+              <PrivateRoute allowedRoles={['student']}>
+                <MainLayout>
+                  <StudentDashboard />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
 
-        <Route path="/dashboard/company" element={
-          <ProtectedRoute allowedRoles={['company']}>
-            <CompanyDashboard />
-          </ProtectedRoute>
-        } />
+          <Route
+            path="/dashboard/company"
+            element={
+              <PrivateRoute allowedRoles={['company']}>
+                <MainLayout>
+                  <CompanyDashboard />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
 
-        <Route path="/dashboard/admin" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        } />
-      </Routes>
+          <Route
+            path="/dashboard/admin"
+            element={
+              <PrivateRoute allowedRoles={['admin']}>
+                <MainLayout>
+                  <AdminDashboard />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
