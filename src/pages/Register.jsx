@@ -25,6 +25,7 @@ const Register = () => {
         password,
         full_name: fullName,
         role: role.toLowerCase(),
+        ...(role === 'Student' && { student_id: studentId })
       };
       await api.post('/auth/register', userData);
       setRegistered(true);
@@ -93,6 +94,7 @@ const Register = () => {
                   value={studentId}
                   onChange={(e) => setStudentId(e.target.value)}
                   placeholder="e.g. 2022-00001-MN-0"
+                  required
                 />
               </div>
               <small className="helper-text">
