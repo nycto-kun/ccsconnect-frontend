@@ -3,17 +3,11 @@ import { motion } from 'motion/react';
 import { ArrowRight, Users, Briefcase, Award, Bell, Calendar, BookOpen } from 'lucide-react';
 import { Button } from './ui/button';
 
-export const Hero = ({ onNavigate }) => {
+export const Hero = ({ user }) => {
   const stats = [
     { icon: Users, value: '120+', label: 'Students Placed' },
     { icon: Briefcase, value: '50+', label: 'Active Internships' },
     { icon: Award, value: '95%', label: 'Placement Rate' },
-  ];
-
-  const quickLinks = [
-    { icon: BookOpen, label: 'Resource Hub', page: 'resources' },
-    { icon: Award, label: 'Offer Vault', page: 'offers' },
-    { icon: Calendar, label: 'Events Calendar', page: 'calendar' },
   ];
 
   const noticeTicker = [
@@ -25,7 +19,7 @@ export const Hero = ({ onNavigate }) => {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Background animated circles – add dark variants */}
+      {/* Background animated circles */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div className="absolute top-20 left-10 w-20 h-20 bg-gray-300 dark:bg-gray-700 rounded-full opacity-60" animate={{ y: [0, -20, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} />
         <motion.div className="absolute top-40 right-20 w-32 h-32 bg-gray-200 dark:bg-gray-800 rounded-full opacity-40" animate={{ y: [0, 20, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }} />
@@ -34,15 +28,17 @@ export const Hero = ({ onNavigate }) => {
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 text-center">
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: "easeOut" }}>
-          <motion.h1 className="text-5xl md:text-7xl font-bold text-gray-800 dark:text-gray-100 mb-6 leading-tight" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }}>
-            Launch Your
-            <motion.span className="block text-transparent bg-gradient-to-r from-gray-700 to-gray-800 dark:from-gray-400 dark:to-gray-500 bg-clip-text" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.4 }}>
-              Career Journey
-            </motion.span>
-          </motion.h1>
-
+          {user ? (
+            <h1 className="text-5xl md:text-7xl font-bold text-gray-800 dark:text-gray-100 mb-6">
+              Welcome back, {user.full_name?.split(' ')[0]}! 👋
+            </h1>
+          ) : (
+            <h1 className="text-5xl md:text-7xl font-bold text-gray-800 dark:text-gray-100 mb-6">
+              Launch Your Career Journey
+            </h1>
+          )}
           <motion.p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.6 }}>
-            Connect with top companies, find meaningful internships, and build the career you've always dreamed of. Your future starts here.
+            Connect with top companies, find meaningful internships, and build the career you've always dreamed of.
           </motion.p>
 
           <motion.div className="mb-8 overflow-hidden bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl p-4" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.9 }}>

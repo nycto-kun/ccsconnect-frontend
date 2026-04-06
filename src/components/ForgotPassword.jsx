@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Key, Mail, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -12,9 +12,6 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
-  const location = useLocation();
-
-  const isActive = (path) => location.pathname === path;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,7 +20,7 @@ const ForgotPassword = () => {
     setError(null);
 
     try {
-      await api.post('/auth/forgot-password', { email });
+      await api.post('/auth/forgot-password', null, { params: { email } });
       setMessage('If an account exists with that email, a password reset link has been sent.');
     } catch (err) {
       console.error('Password reset request failed', err);
@@ -36,16 +33,11 @@ const ForgotPassword = () => {
   return (
     <div className="relative min-h-screen">
       {/* Background image with overlay */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: "url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')",
-        }}
-      >
+      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')" }}>
         <div className="absolute inset-0 bg-black/60" />
       </div>
 
-      {/* Navigation Bar */}
+      {/* Simple Navigation */}
       <nav className="relative z-10 bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -55,28 +47,9 @@ const ForgotPassword = () => {
               </div>
               <span className="text-white font-bold text-lg">CCSconnect</span>
             </Link>
-
             <div className="flex space-x-4">
-              <Link
-                to="/login"
-                className={`${
-                  isActive('/login')
-                    ? 'bg-white/30 text-white'
-                    : 'bg-white/20 hover:bg-white/30 text-white'
-                } px-4 py-2 rounded-md text-sm font-medium transition-colors`}
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                className={`${
-                  isActive('/register')
-                    ? 'bg-white/30 text-white'
-                    : 'bg-white/20 hover:bg-white/30 text-white'
-                } px-4 py-2 rounded-md text-sm font-medium transition-colors`}
-              >
-                Sign up
-              </Link>
+              <Link to="/login" className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-md text-sm font-medium">Login</Link>
+              <Link to="/register" className="bg-white/30 text-white px-4 py-2 rounded-md text-sm font-medium">Sign up</Link>
             </div>
           </div>
         </div>
@@ -91,9 +64,7 @@ const ForgotPassword = () => {
                 <Key className="w-8 h-8 text-white" />
               </div>
               <CardTitle className="text-2xl text-gray-800">Reset Password</CardTitle>
-              <p className="text-gray-500 mt-2">
-                We'll send a password reset link to your inbox.
-              </p>
+              <p className="text-gray-500 mt-2">We'll send a password reset link to your inbox.</p>
             </CardHeader>
             <CardContent className="space-y-6">
               {message && (
@@ -122,11 +93,7 @@ const ForgotPassword = () => {
                     />
                   </div>
                 </div>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-12 bg-gray-700 hover:bg-gray-800 text-white"
-                >
+                <Button type="submit" disabled={loading} className="w-full h-12 bg-gray-700 hover:bg-gray-800 text-white">
                   {loading ? 'Sending...' : 'Send Reset Link'}
                 </Button>
               </form>

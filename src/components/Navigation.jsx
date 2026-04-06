@@ -5,20 +5,18 @@ import { Avatar, AvatarFallback } from './ui/avatar';
 import { Button } from './ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { NotificationDropdown } from './NotificationDropdown';
+import { useAuth } from '../contexts/AuthContext';
 
-const roleDisplayName = {
-  student: 'Student',
-  company: 'Company Recruiter',
-  admin: 'Admin / Faculty',
-};
-
+const roleDisplayName = { student: 'Student', company: 'Company Recruiter', admin: 'Admin / Faculty' };
 const roleInitials = { student: 'AS', company: 'PM', admin: 'SA' };
 const roleMockName = { student: 'Arjun Sharma', company: 'Priya Mehta', admin: 'System Admin' };
 const roleMockEmail = { student: 'arjun.sharma@college.edu', company: 'priya@techcorp.com', admin: 'admin@ccsconnect.in' };
 
-export const Navigation = ({ currentPage, onNavigate, onLogout, userRole = 'student', onRoleChange }) => {
+export const Navigation = ({ currentPage, onNavigate }) => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, logout, profile } = useAuth();
+  const userRole = user?.role || 'student';
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -45,12 +43,13 @@ export const Navigation = ({ currentPage, onNavigate, onLogout, userRole = 'stud
     }
   };
 
+  const userFullName = user?.full_name || (userRole === 'student' ? 'Student User' : userRole === 'company' ? 'Company Rep' : 'Admin');
+  const userEmail = user?.email || (userRole === 'student' ? 'student@example.com' : userRole === 'company' ? 'company@example.com' : 'admin@example.com');
+
   return (
     <motion.nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? 'bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-lg border-b border-gray-200 dark:border-gray-700'
-          : 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm'
+        scrolled ? 'bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-lg border-b border-gray-200 dark:border-gray-700' : 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm'
       }`}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
@@ -58,18 +57,13 @@ export const Navigation = ({ currentPage, onNavigate, onLogout, userRole = 'stud
     >
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
-          <button
-            onClick={() => onNavigate('home')}
-            className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
-          >
+          <button onClick={() => onNavigate('home')} className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
             <div className="w-10 h-10 bg-gradient-to-br from-gray-600 to-gray-800 dark:from-gray-500 dark:to-gray-700 rounded-xl flex items-center justify-center">
               <GraduationCap className="w-6 h-6 text-white" />
             </div>
             <div className="flex flex-col items-start">
               <span className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-none">CCSconnect</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${getRoleBadgeColor()}`}>
-                {roleDisplayName[userRole]}
-              </span>
+              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${getRoleBadgeColor()}`}>{roleDisplayName[userRole]}</span>
             </div>
           </button>
 
@@ -82,9 +76,7 @@ export const Navigation = ({ currentPage, onNavigate, onLogout, userRole = 'stud
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'bg-gray-800 dark:bg-gray-700 text-white'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    isActive ? 'bg-gray-800 dark:bg-gray-700 text-white' : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.96 }}
@@ -104,7 +96,7 @@ export const Navigation = ({ currentPage, onNavigate, onLogout, userRole = 'stud
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
                   <Avatar className="h-10 w-10">
                     <AvatarFallback className="bg-gray-800 dark:bg-gray-700 text-white font-semibold text-sm">
-                      {roleInitials[userRole]}
+                      {userFullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -113,18 +105,17 @@ export const Navigation = ({ currentPage, onNavigate, onLogout, userRole = 'stud
                 <div className="p-3 border-b border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gray-800 dark:bg-gray-700 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                      {roleInitials[userRole]}
+                      {userFullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{roleMockName[userRole]}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{roleMockEmail[userRole]}</p>
+                      <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{userFullName}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userEmail}</p>
                       <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-1 ${getRoleBadgeColor()}`}>
                         {roleDisplayName[userRole]}
                       </span>
                     </div>
                   </div>
                 </div>
-
                 <div className="py-1">
                   <DropdownMenuItem onClick={() => onNavigate('profile')}>
                     <User className="mr-2 h-4 w-4" /><span>My Profile</span>
@@ -133,9 +124,8 @@ export const Navigation = ({ currentPage, onNavigate, onLogout, userRole = 'stud
                     <Settings className="mr-2 h-4 w-4" /><span>Settings</span>
                   </DropdownMenuItem>
                 </div>
-
                 <DropdownMenuSeparator className="dark:bg-gray-700" />
-                <DropdownMenuItem onClick={onLogout} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/30">
+                <DropdownMenuItem onClick={logout} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/30">
                   <LogOut className="mr-2 h-4 w-4" /><span>Log out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -153,12 +143,7 @@ export const Navigation = ({ currentPage, onNavigate, onLogout, userRole = 'stud
         </div>
 
         {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden mt-4 pb-4 border-t border-gray-200 dark:border-gray-700"
-          >
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="md:hidden mt-4 pb-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex flex-col space-y-1 pt-4">
               {navigationItems.map(item => {
                 const Icon = item.icon;
@@ -166,14 +151,9 @@ export const Navigation = ({ currentPage, onNavigate, onLogout, userRole = 'stud
                 return (
                   <button
                     key={item.id}
-                    onClick={() => {
-                      onNavigate(item.id);
-                      setMobileMenuOpen(false);
-                    }}
+                    onClick={() => { onNavigate(item.id); setMobileMenuOpen(false); }}
                     className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                      isActive
-                        ? 'bg-gray-800 dark:bg-gray-700 text-white'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      isActive ? 'bg-gray-800 dark:bg-gray-700 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
                   >
                     <Icon className="w-5 h-5" />

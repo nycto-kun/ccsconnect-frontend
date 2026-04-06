@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, Briefcase, Building, GraduationCap, IdCard, Factory } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import api from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const Register = () => {
+  const { registerStudent, registerCompany } = useAuth();
   const [role, setRole] = useState('student');
   const [studentId, setStudentId] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -19,39 +20,22 @@ const Register = () => {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const isActive = (path) => location.pathname === path;
-
-  const handleRoleSwitch = (newRole) => setRole(newRole);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
     setError(null);
-
     try {
       if (role === 'student') {
-        const response = await api.post('/auth/register-student', null, {
-          params: { student_id: studentId, email }
-        });
-        setMessage(response.data.message || 'Account created! Check your email for the temporary password.');
+        await registerStudent(studentId, email);
+        setMessage('Account created! Check your email for the temporary password.');
       } else {
-        const userData = {
-          email,
-          password,
-          full_name: fullName,
-          role: 'company',
-          company_name: companyName,
-          industry: industry,
-        };
-        await api.post('/auth/register', userData);
+        await registerCompany(fullName, email, password, companyName, industry);
         setMessage('Registration successful! Please check your email to confirm your account before logging in.');
         setTimeout(() => navigate('/login'), 3000);
       }
     } catch (error) {
-      console.error('Registration failed', error);
       setError(error.response?.data?.detail || 'Registration failed. Please check your details.');
     } finally {
       setLoading(false);
@@ -61,16 +45,11 @@ const Register = () => {
   return (
     <div className="relative min-h-screen">
       {/* Background image with overlay */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: "url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')",
-        }}
-      >
+      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')" }}>
         <div className="absolute inset-0 bg-black/60" />
       </div>
 
-      {/* Navigation Bar */}
+      {/* Simple Navigation */}
       <nav className="relative z-10 bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -80,28 +59,9 @@ const Register = () => {
               </div>
               <span className="text-white font-bold text-lg">CCSconnect</span>
             </Link>
-
             <div className="flex space-x-4">
-              <Link
-                to="/login"
-                className={`${
-                  isActive('/login')
-                    ? 'bg-white/30 text-white'
-                    : 'bg-white/20 hover:bg-white/30 text-white'
-                } px-4 py-2 rounded-md text-sm font-medium transition-colors`}
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                className={`${
-                  isActive('/register')
-                    ? 'bg-white/30 text-white'
-                    : 'bg-white/20 hover:bg-white/30 text-white'
-                } px-4 py-2 rounded-md text-sm font-medium transition-colors`}
-              >
-                Sign up
-              </Link>
+              <Link to="/login" className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-md text-sm font-medium">Login</Link>
+              <Link to="/register" className="bg-white/30 text-white px-4 py-2 rounded-md text-sm font-medium">Sign up</Link>
             </div>
           </div>
         </div>
@@ -119,30 +79,24 @@ const Register = () => {
                 {role === 'student' ? 'Student Registration' : 'Company Registration'}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent>
               {/* Role Switcher */}
-              <div className="flex gap-4 mb-2 bg-white/20 p-1 rounded-xl shadow-sm">
+              <div className="flex gap-4 mb-6 bg-white/20 p-1 rounded-xl shadow-sm">
                 <button
-                  onClick={() => handleRoleSwitch('student')}
+                  onClick={() => setRole('student')}
                   className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-                    role === 'student'
-                      ? 'bg-gray-800 text-white shadow-md'
-                      : 'text-gray-700 hover:bg-gray-100'
+                    role === 'student' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
-                  <GraduationCap className="w-4 h-4" />
-                  Student
+                  <GraduationCap className="w-4 h-4" /> Student
                 </button>
                 <button
-                  onClick={() => handleRoleSwitch('company')}
+                  onClick={() => setRole('company')}
                   className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-                    role === 'company'
-                      ? 'bg-gray-800 text-white shadow-md'
-                      : 'text-gray-700 hover:bg-gray-100'
+                    role === 'company' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
-                  <Building className="w-4 h-4" />
-                  Company
+                  <Building className="w-4 h-4" /> Company
                 </button>
               </div>
 
@@ -150,9 +104,7 @@ const Register = () => {
                 <div className="bg-green-50 text-green-700 p-4 rounded-lg text-center space-y-2">
                   <p>{message}</p>
                   {role === 'company' && (
-                    <Link to="/login" className="text-green-700 font-medium underline inline-block">
-                      Go to Login
-                    </Link>
+                    <Link to="/login" className="text-green-700 font-medium underline inline-block">Go to Login</Link>
                   )}
                 </div>
               ) : (
@@ -270,27 +222,17 @@ const Register = () => {
                     </>
                   )}
 
-                  {error && (
-                    <div className="bg-red-50 text-red-700 p-3 rounded-lg text-center text-sm">
-                      {error}
-                    </div>
-                  )}
+                  {error && <div className="bg-red-50 text-red-700 p-3 rounded-lg text-center text-sm">{error}</div>}
 
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full h-12 bg-gray-700 hover:bg-gray-800 text-white"
-                  >
+                  <Button type="submit" disabled={loading} className="w-full h-12 bg-gray-700 hover:bg-gray-800 text-white">
                     {loading ? 'Processing...' : (role === 'student' ? 'Register' : 'Create Account')}
                   </Button>
                 </form>
               )}
 
-              <div className="text-center text-sm text-gray-600">
+              <div className="text-center text-sm text-gray-600 mt-6">
                 Already have an account?{' '}
-                <Link to="/login" className="text-gray-700 hover:text-gray-900 font-medium">
-                  Sign in here
-                </Link>
+                <Link to="/login" className="text-gray-700 hover:text-gray-900 font-medium">Sign in here</Link>
               </div>
             </CardContent>
           </Card>
