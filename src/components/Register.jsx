@@ -120,7 +120,7 @@ const Register = () => {
                             type="text"
                             value={studentId}
                             onChange={(e) => setStudentId(e.target.value)}
-                            placeholder="e.g. 2022-00001-MN-0"
+                            placeholder="e.g. 2XX-XXXXXM"
                             className="pl-10 h-12 border-gray-300 focus:border-gray-500"
                             required
                           />
