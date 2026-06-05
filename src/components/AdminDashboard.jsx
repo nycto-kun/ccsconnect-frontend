@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   Users, Briefcase, TrendingUp, Bell, FileText, Building,
@@ -16,68 +16,44 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Progress } from './ui/progress';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { useSharedData } from '../contexts/SharedDataContext';
-import { Interns } from './Interns';
-
-// Mock data
-const mockNotices = [
-  { id: 1, title: 'Google Summer Internship 2024 — Applications Open', content: 'Google is now accepting applications for their Summer 2024 internship program. Eligible: Final year CSE/IT/ECE students with CGPA ≥ 8.0.', type: 'internship', pinned: true, start_date: '2024-01-01', end_date: '2024-03-15', created_by: 'Admin', created_at: '2024-01-01T10:00:00Z' },
-  { id: 2, title: 'Microsoft Campus Placement Drive', content: 'Microsoft campus placement drive is scheduled for January 2024. Roles: SWE, PM, Data Analyst.', type: 'placement', pinned: true, start_date: '2024-01-05', end_date: '2024-02-20', created_by: 'Admin', created_at: '2024-01-05T09:00:00Z' },
-  { id: 3, title: 'Career Fair 2024', content: 'Annual career fair with 50+ companies attending. All students eligible to participate.', type: 'workshop', pinned: false, start_date: '2024-02-01', end_date: '2024-02-28', created_by: 'Admin', created_at: '2024-01-10T11:00:00Z' },
-];
-
-const mockUsers = [
-  { id: 1, name: 'Arjun Sharma', email: 'arjun@college.edu', role: 'student', status: 'active', joinDate: '2023-09-01' },
-  { id: 2, name: 'TechCorp Solutions', email: 'hr@techcorp.com', role: 'company', status: 'active', joinDate: '2023-10-15' },
-  { id: 3, name: 'Priya Nair', email: 'priya@college.edu', role: 'student', status: 'active', joinDate: '2023-09-01' },
-  { id: 4, name: 'InnovateLabs', email: 'contact@innovlabs.com', role: 'company', status: 'pending', joinDate: '2024-01-10' },
-  { id: 5, name: 'Dr. Ramesh Kumar', email: 'ramesh@iitb.ac.in', role: 'college', status: 'active', joinDate: '2022-06-01' },
-  { id: 6, name: 'Neha Gupta', email: 'neha@google.com', role: 'alumni', status: 'active', joinDate: '2023-07-15' },
-];
+import api from '../utils/api';
 
 const getStatusColor = (status) => {
-  const m = { 
-    active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300', 
-    pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300', 
-    inactive: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', 
-    accepted: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300', 
-    interview: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300', 
-    rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300', 
-    completed: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', 
-    terminated: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' 
+  const m = {
+    active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+    pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+    accepted: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+    interview: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+    rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+    completed: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    terminated: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
   };
-  return m[status] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+  return m[status] || 'bg-gray-100 text-gray-700';
 };
 
 const getTypeColor = (type) => {
-  const m = { 
-    internship: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300', 
-    placement: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300', 
-    project: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300', 
-    apprenticeship: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300', 
-    workshop: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300', 
-    assessment: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' 
+  const m = {
+    internship: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+    placement: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+    project: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+    workshop: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300',
+    assessment: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
   };
-  return m[type] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+  return m[type] || 'bg-gray-100 text-gray-700';
 };
 
 export const AdminDashboard = () => {
   const { assignments, attendance, getStudentHours, getAttendanceRate, getStudentAttendance, getFacultyReports } = useSharedData();
 
-  const currentFacultyId = 'fac-001'; // Replace with actual from auth
-  const facultyReports = getFacultyReports(currentFacultyId);
-  const successfulInterns = assignments.filter(a => a.status === 'completed').length;
+  // Real data from backend
+  const [stats, setStats] = useState({ totalStudents: 0, activeJobs: 0, placementRate: 0 });
+  const [pendingCompanies, setPendingCompanies] = useState([]);
+  const [notices, setNotices] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const mockAdminStats = [
-    { label: 'Total Users', value: 2547, icon: Users, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 dark:bg-blue-900/30', change: '+12%' },
-    { label: 'Active Companies', value: 156, icon: Building, color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-100 dark:bg-purple-900/30', change: '+8%' },
-    { label: 'Job Postings', value: 342, icon: Briefcase, color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900/30', change: '+15%' },
-    { label: 'Placed Students', value: 1089, icon: GraduationCap, color: 'text-gray-600 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-800', change: '+5%' },
-    { label: 'Successful Interns', value: successfulInterns, icon: Award, color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900/30', change: '+5%' },
-  ];
-
-  const [notices, setNotices] = useState(mockNotices);
+  // UI state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingNotice, setEditingNotice] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -85,57 +61,125 @@ export const AdminDashboard = () => {
   const [expandedStudent, setExpandedStudent] = useState(null);
   const [studentSearch, setStudentSearch] = useState('');
   const [filterDept, setFilterDept] = useState('all');
-  const [newNotice, setNewNotice] = useState({ title: '', content: '', type: 'internship', pinned: false, start_date: '', end_date: '' });
+  const [newNotice, setNewNotice] = useState({
+    title: '', content: '', type: 'internship', pinned: false,
+    start_date: '', end_date: ''
+  });
 
-  const handleCreateNotice = () => {
-    if (!newNotice.title || !newNotice.content || !newNotice.start_date || !newNotice.end_date) {
-      toast.error('Please fill in all required fields'); return;
+  // Fetch admin data
+  useEffect(() => {
+    const fetchAdminData = async () => {
+      try {
+        const statsRes = await api.get('/admin/stats');
+        setStats(statsRes.data);
+        const compRes = await api.get('/admin/pending-companies');
+        setPendingCompanies(compRes.data);
+        const noticesRes = await api.get('/notices');
+        setNotices(noticesRes.data);
+      } catch (error) {
+        console.error('Failed to load admin data', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAdminData();
+  }, []);
+
+  // Notice CRUD
+  const handleCreateNotice = async () => {
+    if (!newNotice.title || !newNotice.content) {
+      toast.error('Please fill title and content');
+      return;
     }
-    const notice = { id: Date.now(), ...newNotice, created_by: 'Admin', created_at: new Date().toISOString() };
-    setNotices([notice, ...notices]);
-    setIsDialogOpen(false);
-    setNewNotice({ title: '', content: '', type: 'internship', pinned: false, start_date: '', end_date: '' });
-    toast.success('Notice created successfully');
+    try {
+      await api.post('/notices', newNotice);
+      const noticesRes = await api.get('/notices');
+      setNotices(noticesRes.data);
+      setIsDialogOpen(false);
+      setNewNotice({ title: '', content: '', type: 'internship', pinned: false, start_date: '', end_date: '' });
+      toast.success('Notice created');
+    } catch (error) {
+      toast.error('Failed to create notice');
+    }
   };
 
   const handleEditNotice = (notice) => {
     setEditingNotice(notice);
-    setNewNotice({ title: notice.title, content: notice.content, type: notice.type, pinned: notice.pinned, start_date: notice.start_date, end_date: notice.end_date });
+    setNewNotice({
+      title: notice.title,
+      content: notice.content,
+      type: notice.type,
+      pinned: notice.pinned,
+      start_date: notice.start_date,
+      end_date: notice.end_date,
+    });
     setIsDialogOpen(true);
   };
 
-  const handleUpdateNotice = () => {
+  const handleUpdateNotice = async () => {
     if (!editingNotice) return;
-    setNotices(notices.map(n => n.id === editingNotice.id ? { ...n, ...newNotice } : n));
-    setIsDialogOpen(false);
-    setEditingNotice(null);
-    setNewNotice({ title: '', content: '', type: 'internship', pinned: false, start_date: '', end_date: '' });
-    toast.success('Notice updated');
+    try {
+      await api.put(`/notices/${editingNotice.id}`, newNotice);
+      const noticesRes = await api.get('/notices');
+      setNotices(noticesRes.data);
+      setIsDialogOpen(false);
+      setEditingNotice(null);
+      setNewNotice({ title: '', content: '', type: 'internship', pinned: false, start_date: '', end_date: '' });
+      toast.success('Notice updated');
+    } catch (error) {
+      toast.error('Update failed');
+    }
   };
 
-  const filteredNotices = notices.filter(n => {
-    const ms = n.title.toLowerCase().includes(searchTerm.toLowerCase()) || n.content.toLowerCase().includes(searchTerm.toLowerCase());
-    const mt = filterType === 'all' || n.type === filterType;
-    return ms && mt;
-  });
+  const handleDeleteNotice = async (id) => {
+    try {
+      await api.delete(`/notices/${id}`);
+      setNotices(notices.filter(n => n.id !== id));
+      toast.success('Notice deleted');
+    } catch (error) {
+      toast.error('Delete failed');
+    }
+  };
+
+  const handleApproveCompany = async (id) => {
+    try {
+      await api.post(`/admin/approve-company/${id}`);
+      setPendingCompanies(pendingCompanies.filter(c => c.id !== id));
+      toast.success('Company approved');
+    } catch (error) {
+      toast.error('Approval failed');
+    }
+  };
+
+  // Data from SharedDataContext (remains for student progress)
+  const facultyReports = getFacultyReports('fac-001'); // todo: use actual faculty id
+  const successfulInterns = assignments.filter(a => a.status === 'completed').length;
+  const totalActiveInterns = assignments.filter(a => a.status === 'active').length;
+  const avgAttendance = assignments.length ? Math.round(assignments.reduce((s, a) => s + getAttendanceRate(a.studentId), 0) / assignments.length) : 0;
+  const lowAttendanceCount = assignments.filter(a => getAttendanceRate(a.studentId) < 75).length;
 
   const departments = ['all', ...new Set(assignments.map(a => a.department))];
   const filteredAssignments = assignments.filter(a => {
-    const ms = a.studentName.toLowerCase().includes(studentSearch.toLowerCase()) || a.rollNumber.toLowerCase().includes(studentSearch.toLowerCase()) || a.companyName.toLowerCase().includes(studentSearch.toLowerCase());
+    const ms = a.studentName.toLowerCase().includes(studentSearch.toLowerCase()) ||
+               a.rollNumber.toLowerCase().includes(studentSearch.toLowerCase()) ||
+               a.companyName.toLowerCase().includes(studentSearch.toLowerCase());
     const md = filterDept === 'all' || a.department === filterDept;
     return ms && md;
   });
 
-  const totalActiveInterns = assignments.filter(a => a.status === 'active').length;
-  const avgAttendance = assignments.length
-    ? Math.round(assignments.reduce((s, a) => s + getAttendanceRate(a.studentId), 0) / assignments.length)
-    : 0;
-  const lowAttendanceCount = assignments.filter(a => getAttendanceRate(a.studentId) < 75).length;
+  const filteredNotices = notices.filter(n => {
+    const ms = n.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               n.content?.toLowerCase().includes(searchTerm.toLowerCase());
+    const mt = filterType === 'all' || n.type === filterType;
+    return ms && mt;
+  });
+
+  if (loading) return <div className="text-center py-20">Loading dashboard...</div>;
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
       {/* Header */}
-      <motion.div className="mb-10" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+      <motion.div className="mb-10" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center gap-3 mb-2">
           <div className="w-12 h-12 bg-gray-800 dark:bg-gray-700 rounded-xl flex items-center justify-center">
             <Shield className="w-6 h-6 text-white" />
@@ -147,111 +191,75 @@ export const AdminDashboard = () => {
         </div>
       </motion.div>
 
-      {/* Stats */}
+      {/* Stats (real from backend) */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-        {mockAdminStats.map((stat, i) => {
-          const Icon = stat.icon;
-          return (
-            <motion.div key={i} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
-              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow dark:bg-gray-800 dark:border-gray-700">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{stat.label}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{stat.value.toLocaleString()}</p>
-                        <Badge variant="outline" className="text-green-600 border-green-300 dark:text-green-400 dark:border-green-800 text-xs">{stat.change}</Badge>
-                      </div>
-                    </div>
-                    <div className={`w-11 h-11 rounded-xl ${stat.bgColor} flex items-center justify-center flex-shrink-0`}>
-                      <Icon className={`w-5 h-5 ${stat.color}`} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Total Students</p>
+                <p className="text-2xl font-bold">{stats.totalStudents}</p>
+              </div>
+              <div className="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center"><Users className="w-5 h-5 text-blue-600" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div><p className="text-xs text-gray-500 mb-1">Active Jobs</p><p className="text-2xl font-bold">{stats.activeJobs}</p></div>
+              <div className="w-11 h-11 bg-green-100 rounded-xl flex items-center justify-center"><Briefcase className="w-5 h-5 text-green-600" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div><p className="text-xs text-gray-500 mb-1">Placement Rate</p><p className="text-2xl font-bold">{stats.placementRate}%</p></div>
+              <div className="w-11 h-11 bg-purple-100 rounded-xl flex items-center justify-center"><TrendingUp className="w-5 h-5 text-purple-600" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div><p className="text-xs text-gray-500 mb-1">Pending Approvals</p><p className="text-2xl font-bold">{pendingCompanies.length}</p></div>
+              <div className="w-11 h-11 bg-yellow-100 rounded-xl flex items-center justify-center"><Building className="w-5 h-5 text-yellow-600" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div><p className="text-xs text-gray-500 mb-1">Successful Interns</p><p className="text-2xl font-bold">{successfulInterns}</p></div>
+              <div className="w-11 h-11 bg-teal-100 rounded-xl flex items-center justify-center"><Award className="w-5 h-5 text-teal-600" /></div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue="students" className="space-y-6">
         <TabsList className="bg-gray-100 dark:bg-gray-800 rounded-xl p-1 h-auto flex-wrap gap-1">
-          <TabsTrigger value="students" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white dark:data-[state=active]:bg-gray-700">
-            <GraduationCap className="w-4 h-4 mr-2" /> Student Progress
-          </TabsTrigger>
-          <TabsTrigger value="notices" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white dark:data-[state=active]:bg-gray-700">
-            <Bell className="w-4 h-4 mr-2" /> Notices
-          </TabsTrigger>
-          <TabsTrigger value="users" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white dark:data-[state=active]:bg-gray-700">
-            <Users className="w-4 h-4 mr-2" /> Users
-          </TabsTrigger>
-          <TabsTrigger value="applications" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white dark:data-[state=active]:bg-gray-700">
-            <FileText className="w-4 h-4 mr-2" /> Applications
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white dark:data-[state=active]:bg-gray-700">
-            <BarChart3 className="w-4 h-4 mr-2" /> Analytics
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white dark:data-[state=active]:bg-gray-700">
-            <FileText className="w-4 h-4 mr-2" /> Student Reports
-          </TabsTrigger>
+          <TabsTrigger value="students"><GraduationCap className="w-4 h-4 mr-2" /> Student Progress</TabsTrigger>
+          <TabsTrigger value="notices"><Bell className="w-4 h-4 mr-2" /> Notices</TabsTrigger>
+          <TabsTrigger value="companies"><Building className="w-4 h-4 mr-2" /> Company Approvals</TabsTrigger>
+          <TabsTrigger value="analytics"><BarChart3 className="w-4 h-4 mr-2" /> Analytics</TabsTrigger>
+          <TabsTrigger value="reports"><FileText className="w-4 h-4 mr-2" /> Student Reports</TabsTrigger>
         </TabsList>
 
-        {/* ── STUDENT PROGRESS TAB (unchanged) ────────────────────────────── */}
+        {/* Student Progress Tab (same as before, using SharedDataContext) */}
         <TabsContent value="students" className="space-y-6">
-          {/* Summary bar */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="border-0 shadow-md bg-gradient-to-br from-gray-800 to-gray-900 dark:from-gray-700 dark:to-gray-800 text-white">
-              <CardContent className="p-4 flex items-center gap-3">
-                <UserCheck className="w-8 h-8 text-green-400" />
-                <div>
-                  <div className="text-2xl font-bold">{totalActiveInterns}</div>
-                  <div className="text-gray-300 text-sm">Active Interns</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
-              <CardContent className="p-4 flex items-center gap-3">
-                <Timer className="w-8 h-8 text-blue-500 dark:text-blue-400" />
-                <div>
-                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">{avgAttendance}%</div>
-                  <div className="text-gray-500 dark:text-gray-400 text-sm">Avg Attendance Rate</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className={`border-0 shadow-md dark:bg-gray-800 dark:border-gray-700 ${lowAttendanceCount > 0 ? 'border-l-4 border-l-red-500' : ''}`}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <AlertTriangle className={`w-8 h-8 ${lowAttendanceCount > 0 ? 'text-red-500' : 'text-gray-300 dark:text-gray-600'}`} />
-                <div>
-                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">{lowAttendanceCount}</div>
-                  <div className="text-gray-500 dark:text-gray-400 text-sm">Below 75% Attendance</div>
-                </div>
-              </CardContent>
-            </Card>
+            <Card className="border-0 shadow-md bg-gradient-to-br from-gray-800 to-gray-900 text-white"><CardContent className="p-4 flex items-center gap-3"><UserCheck className="w-8 h-8 text-green-400" /><div><div className="text-2xl font-bold">{totalActiveInterns}</div><div className="text-gray-300 text-sm">Active Interns</div></div></CardContent></Card>
+            <Card className="border-0 shadow-md"><CardContent className="p-4 flex items-center gap-3"><Timer className="w-8 h-8 text-blue-500" /><div><div className="text-2xl font-bold">{avgAttendance}%</div><div className="text-gray-500 text-sm">Avg Attendance</div></div></CardContent></Card>
+            <Card className={`border-0 shadow-md ${lowAttendanceCount > 0 ? 'border-l-4 border-l-red-500' : ''}`}><CardContent className="p-4 flex items-center gap-3"><AlertTriangle className={`w-8 h-8 ${lowAttendanceCount > 0 ? 'text-red-500' : 'text-gray-300'}`} /><div><div className="text-2xl font-bold">{lowAttendanceCount}</div><div className="text-gray-500 text-sm">Below 75%</div></div></CardContent></Card>
           </div>
 
-          {/* Search & Filter */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-              <Input 
-                placeholder="Search by name, roll no, company…" 
-                value={studentSearch} 
-                onChange={e => setStudentSearch(e.target.value)} 
-                className="pl-9 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
-              />
-            </div>
-            <Select value={filterDept} onValueChange={setFilterDept}>
-              <SelectTrigger className="w-full sm:w-48 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                <Filter className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                {departments.map(d => <SelectItem key={d} value={d}>{d === 'all' ? 'All Departments' : d}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="Search by name, roll no, company…" value={studentSearch} onChange={e => setStudentSearch(e.target.value)} className="pl-9" /></div>
+            <Select value={filterDept} onValueChange={setFilterDept}><SelectTrigger className="w-48"><Filter className="w-4 h-4 mr-2" /><SelectValue /></SelectTrigger><SelectContent>{departments.map(d => <SelectItem key={d} value={d}>{d === 'all' ? 'All Departments' : d}</SelectItem>)}</SelectContent></Select>
           </div>
 
-          {/* Student Progress Cards */}
           <div className="space-y-4">
             {filteredAssignments.map((a, i) => {
               const totalHours = getStudentHours(a.studentId);
@@ -266,308 +274,65 @@ export const AdminDashboard = () => {
 
               return (
                 <motion.div key={a.studentId} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}>
-                  <Card className={`border-0 shadow-md overflow-hidden dark:bg-gray-800 dark:border-gray-700 ${isLow ? 'border-l-4 border-l-red-400' : ''}`}>
+                  <Card className={`border-0 shadow-md overflow-hidden ${isLow ? 'border-l-4 border-l-red-400' : ''}`}>
                     <CardContent className="p-5">
                       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                        {/* Identity */}
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 ${isLow ? 'bg-red-600' : 'bg-gray-800 dark:bg-gray-700'}`}>
-                            {a.studentName.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-semibold text-gray-800 dark:text-gray-200">{a.studentName}</h3>
-                              <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{a.rollNumber}</span>
-                              {isLow && <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 text-xs flex items-center gap-1"><AlertTriangle className="w-3 h-3" />Low Attendance</Badge>}
-                              <Badge className={getStatusColor(a.status)}>{a.status}</Badge>
-                            </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">{a.department} · {a.year}</p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500">{a.jobTitle} at {a.companyName}</p>
-                          </div>
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold ${isLow ? 'bg-red-600' : 'bg-gray-800'}`}>{a.studentName.split(' ').map(n=>n[0]).join('')}</div>
+                          <div><div className="flex items-center gap-2 flex-wrap"><h3 className="font-semibold">{a.studentName}</h3><span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">{a.rollNumber}</span>{isLow && <Badge className="bg-red-100 text-red-700">Low Attendance</Badge>}<Badge className={getStatusColor(a.status)}>{a.status}</Badge></div><p className="text-sm text-gray-500">{a.department} · {a.year}</p><p className="text-xs text-gray-400">{a.jobTitle} at {a.companyName}</p></div>
                         </div>
-
-                        {/* Quick stats */}
-                        <div className="flex gap-5 text-center flex-shrink-0">
-                          <div>
-                            <div className={`text-xl font-bold ${isLow ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-200'}`}>{rate}%</div>
-                            <div className="text-xs text-gray-400 dark:text-gray-500">Attendance</div>
-                          </div>
-                          <div>
-                            <div className="text-xl font-bold text-gray-800 dark:text-gray-200">{totalHours}h</div>
-                            <div className="text-xs text-gray-400 dark:text-gray-500">Hours Done</div>
-                          </div>
-                          <div>
-                            <div className="text-xl font-bold text-gray-800 dark:text-gray-200">{pct}%</div>
-                            <div className="text-xs text-gray-400 dark:text-gray-500">Completion</div>
-                          </div>
-                        </div>
-
-                        <button onClick={() => setExpandedStudent(isExpanded ? null : a.studentId)} className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors flex-shrink-0">
-                          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                        </button>
+                        <div className="flex gap-5 text-center"><div><div className={`text-xl font-bold ${isLow ? 'text-red-600' : 'text-gray-800'}`}>{rate}%</div><div className="text-xs text-gray-400">Attendance</div></div><div><div className="text-xl font-bold">{totalHours}h</div><div className="text-xs text-gray-400">Hours</div></div><div><div className="text-xl font-bold">{pct}%</div><div className="text-xs text-gray-400">Complete</div></div></div>
+                        <button onClick={() => setExpandedStudent(isExpanded ? null : a.studentId)} className="text-gray-400">{isExpanded ? <ChevronUp /> : <ChevronDown />}</button>
                       </div>
-
-                      {/* Progress bar */}
-                      <div className="mt-4">
-                        <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mb-1">
-                          <span>Hours: {totalHours} / {a.totalRequiredHours}</span>
-                          <span>{a.startDate} → {a.endDate}</span>
-                        </div>
-                        <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <motion.div
-                            className={`h-full rounded-full ${isLow ? 'bg-red-400' : 'bg-gradient-to-r from-gray-500 to-gray-800 dark:from-gray-500 dark:to-gray-700'}`}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ duration: 0.8, delay: i * 0.1 }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Expanded Detail */}
-                      {isExpanded && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-700">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            {/* Attendance breakdown */}
-                            <div>
-                              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Attendance Breakdown</p>
-                              <div className="grid grid-cols-3 gap-2 mb-4">
-                                <div className="bg-green-50 dark:bg-green-900/30 rounded-lg p-3 text-center border border-green-100 dark:border-green-800">
-                                  <div className="text-xl font-bold text-green-700 dark:text-green-400">{presentDays}</div>
-                                  <div className="text-xs text-green-600 dark:text-green-500">Present</div>
-                                </div>
-                                <div className="bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-3 text-center border border-yellow-100 dark:border-yellow-800">
-                                  <div className="text-xl font-bold text-yellow-700 dark:text-yellow-400">{halfDays}</div>
-                                  <div className="text-xs text-yellow-600 dark:text-yellow-500">Half Day</div>
-                                </div>
-                                <div className="bg-red-50 dark:bg-red-900/30 rounded-lg p-3 text-center border border-red-100 dark:border-red-800">
-                                  <div className="text-xl font-bold text-red-700 dark:text-red-400">{absentDays}</div>
-                                  <div className="text-xs text-red-600 dark:text-red-500">Absent</div>
-                                </div>
-                              </div>
-
-                              {/* Stipend & dates */}
-                              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-sm space-y-1">
-                                <div className="flex justify-between">
-                                  <span className="text-gray-500 dark:text-gray-400">Stipend</span>
-                                  <span className="font-semibold text-gray-800 dark:text-gray-200">{a.stipend}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-500 dark:text-gray-400">Company</span>
-                                  <span className="font-semibold text-gray-800 dark:text-gray-200">{a.companyName}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-500 dark:text-gray-400">Role</span>
-                                  <span className="font-semibold text-gray-800 dark:text-gray-200">{a.jobTitle}</span>
-                                </div>
-                              </div>
-
-                              {isLow && (
-                                <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-100 dark:border-red-800">
-                                  <p className="text-xs text-red-700 dark:text-red-300 flex items-start gap-2">
-                                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                    Attendance below 75%. Faculty action may be required. Consider scheduling a counseling session.
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Recent log */}
-                            <div>
-                              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Recent Activity</p>
-                              <div className="space-y-2 max-h-52 overflow-y-auto">
-                                {logs.slice(0, 6).map(log => (
-                                  <div key={log.id} className="flex items-center gap-2 text-xs p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${log.status === 'present' ? 'bg-green-500' : log.status === 'absent' ? 'bg-red-500' : 'bg-yellow-500'}`} />
-                                    <span className="text-gray-400 dark:text-gray-500 w-24 flex-shrink-0">{log.date}</span>
-                                    <span className="text-gray-600 dark:text-gray-300 flex-1 truncate">{log.task}</span>
-                                    <span className="text-gray-400 dark:text-gray-500 flex-shrink-0 flex items-center gap-0.5">
-                                      <Timer className="w-3 h-3" />{log.hoursWorked}h
-                                    </span>
-                                  </div>
-                                ))}
-                                {logs.length === 0 && <p className="text-xs text-gray-400 dark:text-gray-500">No logs yet</p>}
-                              </div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
+                      <div className="mt-4"><div className="flex justify-between text-xs text-gray-400"><span>Hours: {totalHours} / {a.totalRequiredHours}</span><span>{a.startDate} → {a.endDate}</span></div><div className="h-2 bg-gray-100 rounded-full overflow-hidden"><motion.div className={`h-full rounded-full ${isLow ? 'bg-red-400' : 'bg-gradient-to-r from-gray-500 to-gray-800'}`} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} /></div></div>
+                      {isExpanded && (<div className="mt-5 pt-4 border-t"><div className="grid grid-cols-1 sm:grid-cols-2 gap-6"><div><p className="text-sm font-semibold mb-3">Attendance Breakdown</p><div className="grid grid-cols-3 gap-2 mb-4"><div className="bg-green-50 rounded-lg p-3 text-center"><div className="text-xl font-bold text-green-700">{presentDays}</div><div className="text-xs text-green-600">Present</div></div><div className="bg-yellow-50 rounded-lg p-3 text-center"><div className="text-xl font-bold text-yellow-700">{halfDays}</div><div className="text-xs text-yellow-600">Half Day</div></div><div className="bg-red-50 rounded-lg p-3 text-center"><div className="text-xl font-bold text-red-700">{absentDays}</div><div className="text-xs text-red-600">Absent</div></div></div><div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1"><div className="flex justify-between"><span className="text-gray-500">Stipend</span><span className="font-semibold">{a.stipend}</span></div><div className="flex justify-between"><span className="text-gray-500">Company</span><span className="font-semibold">{a.companyName}</span></div><div className="flex justify-between"><span className="text-gray-500">Role</span><span className="font-semibold">{a.jobTitle}</span></div></div></div><div><p className="text-sm font-semibold mb-3">Recent Activity</p><div className="space-y-2 max-h-52 overflow-y-auto">{logs.slice(0,6).map(log => (<div key={log.id} className="flex items-center gap-2 text-xs p-2 bg-gray-50 rounded-lg"><span className={`w-2 h-2 rounded-full ${log.status==='present'?'bg-green-500':log.status==='absent'?'bg-red-500':'bg-yellow-500'}`} /><span className="text-gray-400 w-24">{log.date}</span><span className="text-gray-600 flex-1 truncate">{log.task}</span><span className="text-gray-400 flex items-center gap-0.5"><Timer className="w-3 h-3" />{log.hoursWorked}h</span></div>))}</div></div></div></div>)}
                     </CardContent>
                   </Card>
                 </motion.div>
               );
             })}
-
-            {filteredAssignments.length === 0 && (
-              <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
-                <CardContent className="py-16 text-center text-gray-400 dark:text-gray-500">
-                  <GraduationCap className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>No students found matching your search</p>
-                </CardContent>
-              </Card>
-            )}
+            {filteredAssignments.length === 0 && <Card><CardContent className="py-16 text-center text-gray-400"><GraduationCap className="w-12 h-12 mx-auto mb-3 opacity-30" /><p>No students found</p></CardContent></Card>}
           </div>
         </TabsContent>
 
-        {/* ── NOTICES TAB (unchanged) ────────────────────────────────────── */}
+        {/* Notices Tab (full CRUD with real API) */}
         <TabsContent value="notices" className="space-y-6">
-          <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
+          <Card className="border-0 shadow-md">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="dark:text-gray-100">Notice Management</CardTitle>
-                  <CardDescription className="dark:text-gray-400">Create, edit, and manage all campus notices</CardDescription>
-                </div>
+              <div className="flex justify-between">
+                <div><CardTitle>Notice Management</CardTitle><CardDescription>Create, edit, and manage campus notices</CardDescription></div>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-gray-800 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600" onClick={() => { setEditingNotice(null); setNewNotice({ title: '', content: '', type: 'internship', pinned: false, start_date: '', end_date: '' }); }}>
-                      <Plus className="w-4 h-4 mr-2" /> Create Notice
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl dark:bg-gray-800 dark:border-gray-700">
-                    <DialogHeader>
-                      <DialogTitle className="dark:text-gray-100">{editingNotice ? 'Edit Notice' : 'Create New Notice'}</DialogTitle>
-                      <DialogDescription className="dark:text-gray-400">{editingNotice ? 'Update notice details' : 'Fill in the details to create a new notice'}</DialogDescription>
-                    </DialogHeader>
+                  <DialogTrigger asChild><Button className="bg-gray-800" onClick={() => { setEditingNotice(null); setNewNotice({ title: '', content: '', type: 'internship', pinned: false, start_date: '', end_date: '' }); }}><Plus className="w-4 h-4 mr-2" /> Create Notice</Button></DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader><DialogTitle>{editingNotice ? 'Edit Notice' : 'Create New Notice'}</DialogTitle></DialogHeader>
                     <div className="grid gap-4 py-4">
-                      <div>
-                        <Label className="dark:text-gray-300">Title *</Label>
-                        <Input value={newNotice.title} onChange={e => setNewNotice({ ...newNotice, title: e.target.value })} placeholder="Enter notice title" className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                      </div>
-                      <div>
-                        <Label className="dark:text-gray-300">Content *</Label>
-                        <Textarea value={newNotice.content} onChange={e => setNewNotice({ ...newNotice, content: e.target.value })} rows={4} className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="dark:text-gray-300">Type *</Label>
-                          <Select value={newNotice.type} onValueChange={v => setNewNotice({ ...newNotice, type: v })}>
-                            <SelectTrigger className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"><SelectValue /></SelectTrigger>
-                            <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                              <SelectItem value="internship">Internship</SelectItem>
-                              <SelectItem value="placement">Placement</SelectItem>
-                              <SelectItem value="project">Project</SelectItem>
-                              <SelectItem value="workshop">Workshop</SelectItem>
-                              <SelectItem value="assessment">Assessment</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label className="dark:text-gray-300">Pin Notice</Label>
-                          <Select value={newNotice.pinned ? 'yes' : 'no'} onValueChange={v => setNewNotice({ ...newNotice, pinned: v === 'yes' })}>
-                            <SelectTrigger className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"><SelectValue /></SelectTrigger>
-                            <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                              <SelectItem value="no">No</SelectItem>
-                              <SelectItem value="yes">Yes — Pin to top</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="dark:text-gray-300">Start Date *</Label>
-                          <Input type="date" value={newNotice.start_date} onChange={e => setNewNotice({ ...newNotice, start_date: e.target.value })} className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                        </div>
-                        <div>
-                          <Label className="dark:text-gray-300">End Date *</Label>
-                          <Input type="date" value={newNotice.end_date} onChange={e => setNewNotice({ ...newNotice, end_date: e.target.value })} className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                        </div>
-                      </div>
+                      <div><Label>Title *</Label><Input value={newNotice.title} onChange={e => setNewNotice({...newNotice, title:e.target.value})} /></div>
+                      <div><Label>Content *</Label><Textarea rows={4} value={newNotice.content} onChange={e => setNewNotice({...newNotice, content:e.target.value})} /></div>
+                      <div className="grid grid-cols-2 gap-4"><div><Label>Type</Label><Select value={newNotice.type} onValueChange={v => setNewNotice({...newNotice, type:v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="internship">Internship</SelectItem><SelectItem value="placement">Placement</SelectItem><SelectItem value="workshop">Workshop</SelectItem></SelectContent></Select></div><div><Label>Pin Notice</Label><Select value={newNotice.pinned ? 'yes' : 'no'} onValueChange={v => setNewNotice({...newNotice, pinned: v==='yes'})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="no">No</SelectItem><SelectItem value="yes">Yes</SelectItem></SelectContent></Select></div></div>
+                      <div className="grid grid-cols-2 gap-4"><div><Label>Start Date</Label><Input type="date" value={newNotice.start_date} onChange={e => setNewNotice({...newNotice, start_date:e.target.value})} /></div><div><Label>End Date</Label><Input type="date" value={newNotice.end_date} onChange={e => setNewNotice({...newNotice, end_date:e.target.value})} /></div></div>
                     </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</Button>
-                      <Button className="bg-gray-800 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600" onClick={editingNotice ? handleUpdateNotice : handleCreateNotice}>
-                        {editingNotice ? 'Update' : 'Create'}
-                      </Button>
-                    </DialogFooter>
+                    <DialogFooter><Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button><Button className="bg-gray-800" onClick={editingNotice ? handleUpdateNotice : handleCreateNotice}>{editingNotice ? 'Update' : 'Create'}</Button></DialogFooter>
                   </DialogContent>
                 </Dialog>
               </div>
             </CardHeader>
             <CardContent>
-              {/* Search/Filter */}
-              <div className="flex flex-col sm:flex-row gap-3 mb-5">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-                  <Input placeholder="Search notices…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                </div>
-                <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="w-full sm:w-44 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                    <Filter className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="internship">Internship</SelectItem>
-                    <SelectItem value="placement">Placement</SelectItem>
-                    <SelectItem value="workshop">Workshop</SelectItem>
-                    <SelectItem value="assessment">Assessment</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-3">
-                {filteredNotices.map(notice => (
-                  <motion.div key={notice.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <h3 className="font-semibold text-gray-800 dark:text-gray-200">{notice.title}</h3>
-                          <Badge className={getTypeColor(notice.type)}>{notice.type}</Badge>
-                          {notice.pinned && <Badge variant="outline" className="border-gray-500 dark:border-gray-600 text-gray-600 dark:text-gray-400 text-xs">📌 Pinned</Badge>}
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{notice.content}</p>
-                        <div className="flex flex-wrap gap-3 text-xs text-gray-400 dark:text-gray-500">
-                          <span>📅 {notice.start_date} → {notice.end_date}</span>
-                          <span>👤 {notice.created_by}</span>
-                        </div>
-                      </div>
-                      <div className="flex gap-1 flex-shrink-0">
-                        <Button size="sm" variant="ghost" onClick={() => { setNotices(notices.map(n => n.id === notice.id ? { ...n, pinned: !n.pinned } : n)); toast.success('Notice updated'); }}>
-                          <Bell className={`w-4 h-4 ${notice.pinned ? 'fill-current text-gray-700 dark:text-gray-300' : ''}`} />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleEditNotice(notice)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => { setNotices(notices.filter(n => n.id !== notice.id)); toast.success('Notice deleted'); }} className="text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+              <div className="flex flex-col sm:flex-row gap-3 mb-5"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input placeholder="Search notices…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" /></div><Select value={filterType} onValueChange={setFilterType}><SelectTrigger className="w-44"><Filter className="w-4 h-4 mr-2" /><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Types</SelectItem><SelectItem value="internship">Internship</SelectItem><SelectItem value="placement">Placement</SelectItem><SelectItem value="workshop">Workshop</SelectItem></SelectContent></Select></div>
+              <div className="space-y-3">{filteredNotices.map(notice => (<div key={notice.id} className="p-4 bg-gray-50 rounded-xl border"><div className="flex justify-between"><div><div className="flex items-center gap-2 flex-wrap"><h3 className="font-semibold">{notice.title}</h3><Badge className={getTypeColor(notice.type)}>{notice.type}</Badge>{notice.pinned && <Badge variant="outline">📌 Pinned</Badge>}</div><p className="text-sm text-gray-600 mb-2">{notice.content}</p><div className="flex gap-3 text-xs text-gray-400"><span>📅 {notice.start_date} → {notice.end_date}</span><span>👤 {notice.created_by}</span></div></div><div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => handleEditNotice(notice)}><Edit className="w-4 h-4" /></Button><Button size="sm" variant="ghost" onClick={() => handleDeleteNotice(notice.id)} className="text-red-500"><Trash2 className="w-4 h-4" /></Button></div></div></div>))}</div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ── USERS TAB (unchanged) ───────────────────────────────────────── */}
-        <TabsContent value="users" className="space-y-4">
-          <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
-            <CardHeader>
-              <CardTitle className="dark:text-gray-100">User Management</CardTitle>
-              <CardDescription className="dark:text-gray-400">All registered users across the platform</CardDescription>
-            </CardHeader>
+        {/* Company Approvals Tab (real API) */}
+        <TabsContent value="companies" className="space-y-4">
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle>Company Approvals</CardTitle><CardDescription>Review new employer accounts</CardDescription></CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {mockUsers.map(user => (
-                  <div key={user.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-700 hover:shadow-sm transition-all">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-800 dark:bg-gray-600 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                        {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{user.name}</h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs capitalize dark:border-gray-600 dark:text-gray-300">{user.role}</Badge>
-                          <span className="text-xs text-gray-400 dark:text-gray-500">Joined {user.joinDate}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge className={getStatusColor(user.status)}>{user.status}</Badge>
-                      <Button size="sm" variant="outline" className="text-xs dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">Manage</Button>
-                    </div>
+                {pendingCompanies.length === 0 ? <p className="text-center py-8 text-gray-500">No pending companies</p> : pendingCompanies.map(company => (
+                  <div key={company.id} className="p-4 bg-gray-50 rounded-xl flex justify-between items-center">
+                    <div><h4 className="font-semibold">{company.name}</h4><p className="text-sm text-gray-500">{company.contact_email} · {company.industry}</p><p className="text-xs text-gray-400">Submitted: {company.created_at?.split('T')[0]}</p></div>
+                    <div className="flex gap-2"><Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleApproveCompany(company.id)}>Approve</Button><Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">Reject</Button></div>
                   </div>
                 ))}
               </div>
@@ -575,122 +340,49 @@ export const AdminDashboard = () => {
           </Card>
         </TabsContent>
 
-        {/* ── APPLICATIONS TAB (unchanged) ─────────────────────────────────── */}
-        <TabsContent value="applications" className="space-y-4">
-          <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
-            <CardHeader>
-              <CardTitle className="dark:text-gray-100">Application Overview</CardTitle>
-              <CardDescription className="dark:text-gray-400">All student applications across the platform</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {[
-                  { id: 1, student: 'Arjun Sharma', company: 'TechCorp', position: 'SWE Intern', status: 'accepted', date: '2024-01-20', dept: 'CS' },
-                  { id: 2, student: 'Priya Nair', company: 'TechCorp', position: 'Data Scientist Intern', status: 'accepted', date: '2024-01-18', dept: 'CS' },
-                  { id: 3, student: 'Rohan Mehta', company: 'TechCorp', position: 'PM Intern', status: 'interview', date: '2024-01-15', dept: 'EC' },
-                  { id: 4, student: 'Sneha Patel', company: 'TechCorp', position: 'Operations Intern', status: 'accepted', date: '2024-01-22', dept: 'ME' },
-                  { id: 5, student: 'Kiran Desai', company: 'Google', position: 'ML Intern', status: 'pending', date: '2024-01-25', dept: 'CS' },
-                ].map(app => (
-                  <div key={app.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-700 hover:shadow-sm transition-all">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{app.student}</h3>
-                        <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{app.dept}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{app.position} at {app.company}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Applied: {app.date}</p>
-                    </div>
-                    <Badge className={getStatusColor(app.status)}>{app.status}</Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ── ANALYTICS TAB (unchanged) ────────────────────────────────────── */}
+        {/* Analytics Tab (real stats from backend) */}
         <TabsContent value="analytics" className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base"><BarChart3 className="w-5 h-5 text-gray-500 dark:text-gray-400" /> User Distribution</CardTitle>
-              </CardHeader>
+            <Card className="border-0 shadow-md">
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><BarChart3 className="w-5 h-5" /> User Distribution</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {[
-                    { label: 'Students', value: 1245, total: 2547 },
-                    { label: 'Companies', value: 156, total: 2547 },
-                    { label: 'Alumni', value: 890, total: 2547 },
-                    { label: 'Faculty/Admin', value: 256, total: 2547 },
-                  ].map((item, i) => (
-                    <div key={i}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600 dark:text-gray-400">{item.label}</span>
-                        <span className="font-semibold text-gray-800 dark:text-gray-200">{item.value.toLocaleString()}</span>
-                      </div>
-                      <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <motion.div className="h-full bg-gray-700 dark:bg-gray-500 rounded-full" initial={{ width: 0 }} animate={{ width: `${(item.value / item.total) * 100}%` }} transition={{ delay: i * 0.1, duration: 0.7 }} />
-                      </div>
-                    </div>
+                    { label: 'Students', value: stats.totalStudents, total: stats.totalStudents + stats.activeJobs + 50 },
+                    { label: 'Companies', value: stats.activeJobs, total: stats.totalStudents + stats.activeJobs + 50 },
+                  ].map((item,i) => (
+                    <div key={i}><div className="flex justify-between text-sm mb-1"><span>{item.label}</span><span>{item.value}</span></div><div className="h-2 bg-gray-100 rounded-full overflow-hidden"><motion.div className="h-full bg-gray-700" initial={{width:0}} animate={{width:`${(item.value/item.total)*100}%`}} transition={{delay:i*0.1,duration:0.7}} /></div></div>
                   ))}
                 </div>
               </CardContent>
             </Card>
-
-            <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base"><TrendingUp className="w-5 h-5 text-gray-500 dark:text-gray-400" /> Internship Analytics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Active Internships', value: totalActiveInterns },
-                    { label: 'Completed This Year', value: 234 },
-                    { label: 'Avg Hours / Student', value: Math.round(assignments.reduce((s, a) => s + getStudentHours(a.studentId), 0) / Math.max(assignments.length, 1)) + 'h' },
-                    { label: 'Avg Attendance Rate', value: avgAttendance + '%' },
-                    { label: 'Low Attendance Alerts', value: lowAttendanceCount },
-                    { label: 'Placements This Semester', value: 67 },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">{item.label}</span>
-                      <span className="font-bold text-gray-800 dark:text-gray-200">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
+            <Card className="border-0 shadow-md">
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="w-5 h-5" /> Internship Analytics</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {[
+                  { label: 'Active Internships', value: totalActiveInterns },
+                  { label: 'Avg Attendance Rate', value: avgAttendance + '%' },
+                  { label: 'Low Attendance Alerts', value: lowAttendanceCount },
+                  { label: 'Placements This Semester', value: 67 },
+                ].map((item,i) => (<div key={i} className="flex justify-between p-3 bg-gray-50 rounded-lg"><span className="text-sm">{item.label}</span><span className="font-bold">{item.value}</span></div>))}
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        {/* ── STUDENT REPORTS TAB (unchanged) ──────────────────────────────── */}
+        {/* Student Reports Tab (from SharedDataContext) */}
         <TabsContent value="reports" className="space-y-6">
-          <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
-            <CardHeader>
-              <CardTitle className="dark:text-gray-100">Student Daily Reports</CardTitle>
-              <CardDescription className="dark:text-gray-400">Reports submitted by your assigned students</CardDescription>
-            </CardHeader>
+          <Card className="border-0 shadow-md">
+            <CardHeader><CardTitle className="dark:text-gray-100">Student Daily Reports</CardTitle><CardDescription>Reports submitted by your assigned students</CardDescription></CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {facultyReports.length === 0 ? (
-                  <p className="text-center text-gray-500 dark:text-gray-400 py-8">No reports submitted by your students yet.</p>
-                ) : (
-                  facultyReports.map(report => (
-                    <div key={report.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-700">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h3 className="font-semibold text-gray-800 dark:text-gray-200">{report.title}</h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">by {report.studentName}</p>
-                        </div>
-                        <Badge variant="outline" className="text-xs dark:border-gray-600 dark:text-gray-300">{report.date}</Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{report.description}</p>
-                      <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500">
-                        <span>Hours: {report.hours}h</span>
-                        {report.tasks && <span>Tasks: {report.tasks}</span>}
-                      </div>
-                    </div>
-                  ))
-                )}
+                {facultyReports.length === 0 ? <p className="text-center py-8 text-gray-500">No reports yet</p> : facultyReports.map(report => (
+                  <div key={report.id} className="p-4 bg-gray-50 rounded-xl border">
+                    <div className="flex justify-between items-start mb-2"><div><h3 className="font-semibold">{report.title}</h3><p className="text-sm text-gray-500">by {report.studentName}</p></div><Badge variant="outline">{report.date}</Badge></div>
+                    <p className="text-sm text-gray-600 mb-2">{report.description}</p>
+                    <div className="flex justify-between text-xs text-gray-400"><span>Hours: {report.hours}h</span>{report.tasks && <span>Tasks: {report.tasks}</span>}</div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

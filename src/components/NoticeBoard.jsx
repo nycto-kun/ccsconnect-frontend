@@ -1,22 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Calendar, Clock, Pin, ExternalLink, Filter } from 'lucide-react';
+import { Calendar, Clock, Pin, ExternalLink, Filter, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import api from '../utils/api';
+import { toast } from 'sonner';
 
 export const NoticeBoard = ({ isHomePage = false }) => {
   const [notices, setNotices] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
 
-  const sampleNotices = [
-    // ... (unchanged) 
-  ];
-
+  // Fetch real notices from backend API
   useEffect(() => {
-    setTimeout(() => { setNotices(sampleNotices); setIsLoading(false); }, 500);
+    const fetchNotices = async () => {
+      setIsLoading(true);
+      try {
+        const response = await api.get('/notices');
+        // Sort: pinned first, then by created_at descending
+        const sortedNotices = response.data.sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+        setNotices(sortedNotices);
+      } catch (error) {
+        console.error('Failed to fetch notices:', error);
+        toast.error('Failed to load notices');
+        setNotices([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchNotices();
   }, []);
 
   const filteredNotices = notices.filter(notice => activeTab === 'all' || notice.type === activeTab);
@@ -34,9 +52,13 @@ export const NoticeBoard = ({ isHomePage = false }) => {
     return colors[type] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
   };
 
-  const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
   const isExpiringSoon = (endDate) => {
+    if (!endDate) return false;
     const end = new Date(endDate);
     const now = new Date();
     const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -47,7 +69,9 @@ export const NoticeBoard = ({ isHomePage = false }) => {
     return (
       <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="animate-pulse"><div className="bg-gray-200 dark:bg-gray-700 rounded-lg h-32"></div></div>
+          <div key={i} className="animate-pulse">
+            <div className="bg-gray-200 dark:bg-gray-700 rounded-lg h-32"></div>
+          </div>
         ))}
       </div>
     );
@@ -64,7 +88,14 @@ export const NoticeBoard = ({ isHomePage = false }) => {
                 <span className="dark:text-gray-100">Notice Board</span>
               </CardTitle>
               {isHomePage && (
-                <Button variant="ghost" size="sm" className="text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700">View All <ExternalLink className="w-4 h-4 ml-1" /></Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => window.location.href = '/notices'}
+                  className="text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  View All <ExternalLink className="w-4 h-4 ml-1" />
+                </Button>
               )}
             </div>
           </CardHeader>
@@ -84,47 +115,58 @@ export const NoticeBoard = ({ isHomePage = false }) => {
             )}
 
             <div className="space-y-4">
-              {displayNotices.map((notice, index) => (
-                <motion.div key={notice.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: index * 0.1 }}
-                  className={`p-4 rounded-lg border-l-4 hover:shadow-md transition-all duration-200 cursor-pointer ${
-                    notice.pinned
-                      ? 'border-l-gray-600 bg-gray-100 dark:border-l-gray-400 dark:bg-gray-700/50'
-                      : 'border-l-gray-300 bg-white dark:border-l-gray-600 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                  }`}>
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      {notice.pinned && <Pin className="w-4 h-4 text-gray-600 dark:text-gray-400 fill-current" />}
-                      <h3 className="font-semibold text-gray-800 dark:text-gray-100 line-clamp-2">{notice.title}</h3>
-                    </div>
-                    <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
-                      <Badge className={getTypeColor(notice.type)}>{notice.type}</Badge>
-                      {isExpiringSoon(notice.end_date) && <Badge variant="destructive" className="animate-pulse">Expires Soon</Badge>}
-                    </div>
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">{notice.content}</p>
-                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>Start: {formatDate(notice.start_date)}</span>
+              {displayNotices.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <Pin className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No notices available</p>
+                </div>
+              ) : (
+                displayNotices.map((notice, index) => (
+                  <motion.div 
+                    key={notice.id} 
+                    initial={{ opacity: 0, y: 20 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                    className={`p-4 rounded-lg border-l-4 hover:shadow-md transition-all duration-200 cursor-pointer ${
+                      notice.pinned
+                        ? 'border-l-gray-600 bg-gray-100 dark:border-l-gray-400 dark:bg-gray-700/50'
+                        : 'border-l-gray-300 bg-white dark:border-l-gray-600 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center space-x-2 flex-1">
+                        {notice.pinned && <Pin className="w-4 h-4 text-gray-600 dark:text-gray-400 fill-current flex-shrink-0" />}
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-100">{notice.title}</h3>
                       </div>
-                      <div className="flex items-center space-x-1">
-                        <Clock className="w-3 h-3" />
-                        <span>End: {formatDate(notice.end_date)}</span>
+                      <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
+                        <Badge className={getTypeColor(notice.type)}>{notice.type}</Badge>
+                        {isExpiringSoon(notice.end_date) && (
+                          <Badge variant="destructive" className="animate-pulse">Expires Soon</Badge>
+                        )}
                       </div>
                     </div>
-                    <span>Posted {formatDate(notice.created_at)}</span>
-                  </div>
-                </motion.div>
-              ))}
+                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">{notice.content}</p>
+                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center space-x-4">
+                        {notice.start_date && (
+                          <div className="flex items-center space-x-1">
+                            <Calendar className="w-3 h-3" />
+                            <span>Start: {formatDate(notice.start_date)}</span>
+                          </div>
+                        )}
+                        {notice.end_date && (
+                          <div className="flex items-center space-x-1">
+                            <Clock className="w-3 h-3" />
+                            <span>End: {formatDate(notice.end_date)}</span>
+                          </div>
+                        )}
+                      </div>
+                      <span>Posted {formatDate(notice.created_at)}</span>
+                    </div>
+                  </motion.div>
+                ))
+              )}
             </div>
-
-            {displayNotices.length === 0 && (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <Pin className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No notices available for this category</p>
-              </div>
-            )}
           </CardContent>
         </Card>
       </motion.div>

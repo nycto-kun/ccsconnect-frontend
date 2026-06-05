@@ -10,7 +10,6 @@ import { Textarea } from './ui/textarea';
 import { EventCalendar } from './EventCalendar';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
-import { useSharedData } from '../contexts/SharedDataContext';
 
 const getStatusColor = (status) => {
   switch (status) {
@@ -24,19 +23,20 @@ const getStatusColor = (status) => {
 
 export const StudentDashboard = () => {
   const { user } = useAuth();
-  const { getStudentAttendance, getAttendanceRate, getStudentHours, addReport, getStudentReports } = useSharedData();
   const [applications, setApplications] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [reports, setReports] = useState([]);
   const [stats, setStats] = useState({ applicationsSent: 0, interviewsScheduled: 0, offersReceived: 0, profileViews: 23 });
-  const [recentApplications, setRecentApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showReportForm, setShowReportForm] = useState(false);
   const [newReport, setNewReport] = useState({ date: new Date().toISOString().split('T')[0], title: '', description: '', hours: '', tasks: '' });
 
   useEffect(() => {
-    const fetchApplications = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get(`/applications?student_id=${user.id}`);
-        const apps = res.data;
+        // Fetch applications
+        const appsRes = await api.get(`/applications?student_id=${user.id}`);
+        const apps = appsRes.data;
         setApplications(apps);
         setStats({
           applicationsSent: apps.length,
@@ -44,37 +44,55 @@ export const StudentDashboard = () => {
           offersReceived: apps.filter(a => a.status === 'accepted').length,
           profileViews: 23,
         });
-        setRecentApplications(apps.slice(0, 3));
+
+        // Fetch attendance
+        const attRes = await api.get(`/attendance?student_id=${user.id}`);
+        setAttendance(attRes.data);
+
+        // Fetch reports
+        const repRes = await api.get(`/reports?student_id=${user.id}`);
+        setReports(repRes.data);
       } catch (error) {
-        console.error('Failed to fetch applications', error);
+        console.error('Failed to fetch dashboard data', error);
       } finally {
         setLoading(false);
       }
     };
-    if (user) fetchApplications();
+    if (user) fetchData();
   }, [user]);
 
-  const handleSubmitReport = (e) => {
+  const handleSubmitReport = async (e) => {
     e.preventDefault();
     if (!newReport.title || !newReport.description || !newReport.hours) {
       alert('Please fill in all required fields');
       return;
     }
-    addReport(user.id, {
-      date: newReport.date,
-      title: newReport.title,
-      description: newReport.description,
-      hours: parseInt(newReport.hours),
-      tasks: newReport.tasks,
-    });
-    setShowReportForm(false);
-    setNewReport({ date: new Date().toISOString().split('T')[0], title: '', description: '', hours: '', tasks: '' });
+    try {
+      await api.post('/reports', {
+        date_str: newReport.date,
+        title: newReport.title,
+        description: newReport.description,
+        hours: parseFloat(newReport.hours),
+        tasks: newReport.tasks,
+      });
+      // Refresh reports
+      const repRes = await api.get(`/reports?student_id=${user.id}`);
+      setReports(repRes.data);
+      setShowReportForm(false);
+      setNewReport({ date: new Date().toISOString().split('T')[0], title: '', description: '', hours: '', tasks: '' });
+    } catch (error) {
+      console.error('Failed to submit report', error);
+      alert('Failed to submit report');
+    }
   };
 
-  const attendanceLogs = getStudentAttendance(user?.id) || [];
-  const attendanceRate = getAttendanceRate(user?.id);
-  const totalHours = getStudentHours(user?.id);
-  const reports = getStudentReports(user?.id);
+  // Calculate attendance rate and total hours
+  const totalHours = attendance.reduce((sum, a) => sum + (a.hours_worked || 0), 0);
+  const presentDays = attendance.filter(a => a.status === 'present').length;
+  const totalDays = attendance.length;
+  const attendanceRate = totalDays ? Math.round((presentDays / totalDays) * 100) : 0;
+
+  const recentApplications = applications.slice(0, 3);
 
   if (loading) return <div className="text-center py-20">Loading dashboard...</div>;
 
@@ -116,7 +134,7 @@ export const StudentDashboard = () => {
         </Card>
       </motion.div>
 
-      {/* Daily Reports Section (same as before, uses SharedDataContext) */}
+      {/* Daily Reports Section */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-8">
         <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
           <CardHeader className="pb-3">
@@ -138,6 +156,20 @@ export const StudentDashboard = () => {
                 <div key={report.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"><div className="flex justify-between items-start mb-1"><h4 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{report.title}</h4><span className="text-xs text-gray-400 dark:text-gray-500">{report.date}</span></div><p className="text-xs text-gray-600 dark:text-gray-300 mb-1">{report.description}</p><div className="flex justify-between text-xs text-gray-500 dark:text-gray-400"><span>{report.hours}h</span>{report.tasks && <span>Tasks: {report.tasks}</span>}</div></div>
               ))}
               {reports.length === 0 && !showReportForm && <p className="text-center text-gray-500 dark:text-gray-400 py-4">No reports yet. Add your first report!</p>}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Attendance Summary */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mb-8">
+        <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
+          <CardHeader><CardTitle className="flex items-center gap-2"><Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" /><span className="dark:text-gray-100">Attendance Summary</span></CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex justify-between items-center">
+              <div><span className="text-sm text-gray-500">Total Hours</span><div className="text-2xl font-bold">{totalHours}h</div></div>
+              <div><span className="text-sm text-gray-500">Attendance Rate</span><div className="text-2xl font-bold">{attendanceRate}%</div></div>
+              <div><span className="text-sm text-gray-500">Present Days</span><div className="text-2xl font-bold">{presentDays}/{totalDays}</div></div>
             </div>
           </CardContent>
         </Card>
