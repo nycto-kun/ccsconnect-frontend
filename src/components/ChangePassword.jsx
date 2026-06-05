@@ -5,53 +5,53 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import api from '../utils/api';
+import { toast } from 'sonner';
 
 const ChangePassword = ({ onClose }) => {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
-  const [error, setError] = useState(null);
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     if (newPassword !== confirmPassword) {
-      setError('New passwords do not match');
+      toast.error('New passwords do not match');
       return;
     }
     if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+      toast.error('Password must be at least 6 characters');
       return;
     }
+    
     setLoading(true);
-    setMessage(null);
-    setError(null);
-
+    
     try {
       await api.post('/auth/change-password', null, {
         params: { old_password: oldPassword, new_password: newPassword }
       });
-      setMessage('Password changed successfully!');
+      toast.success('Password changed successfully!');
       setTimeout(() => {
         if (onClose) onClose();
-      }, 2000);
+      }, 1500);
     } catch (err) {
-      console.error('Password change failed', err);
-      setError(err.response?.data?.detail || 'Failed to change password');
+      console.error('Password change failed:', err);
+      toast.error(err.response?.data?.detail || 'Failed to change password');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
+    <Card className="border-0 shadow-md dark:bg-gray-800">
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
-          <Lock className="w-5 h-5 text-gray-500" /> Change Password
+          <Lock className="w-5 h-5 text-gray-500" />
+          Change Password
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -65,7 +65,7 @@ const ChangePassword = ({ onClose }) => {
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
                 placeholder="Enter current password"
-                className="pl-10 pr-10 h-12"
+                className="pl-10 pr-10"
                 required
               />
               <button type="button" onClick={() => setShowOld(!showOld)} className="absolute right-3 top-3 text-gray-400">
@@ -73,6 +73,7 @@ const ChangePassword = ({ onClose }) => {
               </button>
             </div>
           </div>
+          
           <div>
             <Label className="text-gray-700 dark:text-gray-300">New Password</Label>
             <div className="relative mt-1">
@@ -81,8 +82,8 @@ const ChangePassword = ({ onClose }) => {
                 type={showNew ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password"
-                className="pl-10 pr-10 h-12"
+                placeholder="Enter new password (min 6 characters)"
+                className="pl-10 pr-10"
                 required
               />
               <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-3 text-gray-400">
@@ -90,6 +91,7 @@ const ChangePassword = ({ onClose }) => {
               </button>
             </div>
           </div>
+          
           <div>
             <Label className="text-gray-700 dark:text-gray-300">Confirm New Password</Label>
             <div className="relative mt-1">
@@ -99,7 +101,7 @@ const ChangePassword = ({ onClose }) => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"
-                className="pl-10 pr-10 h-12"
+                className="pl-10 pr-10"
                 required
               />
               <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-3 text-gray-400">
@@ -107,15 +109,6 @@ const ChangePassword = ({ onClose }) => {
               </button>
             </div>
           </div>
-
-          {message && (
-            <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" /> {message}
-            </div>
-          )}
-          {error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{error}</div>
-          )}
 
           <div className="flex gap-3 pt-2">
             <Button type="submit" disabled={loading} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white">

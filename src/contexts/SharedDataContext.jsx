@@ -12,63 +12,122 @@ export const useSharedData = () => {
 
 export const SharedDataProvider = ({ children }) => {
   const { user } = useAuth();
-  const [assignments, setAssignments] = useState([]);
+  const [applications, setApplications] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [reports, setReports] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    applicationsSent: 0,
+    interviewsScheduled: 0,
+    offersReceived: 0,
+    profileViews: 0
+  });
 
-  // Fetch all data from real API
-  const fetchData = async () => {
-    if (!user) return;
+  // Fetch all student data
+  const fetchStudentData = async () => {
+    if (!user || user.role !== 'student') return;
+
+    try {
+      setLoading(true);
+      
+      // Fetch applications
+      const appsRes = await api.get(`/applications?student_id=${user.id}`);
+      const apps = appsRes.data || [];
+      setApplications(apps);
+      
+      // Fetch attendance
+      const attRes = await api.get(`/attendance?student_id=${user.id}`);
+      setAttendance(attRes.data || []);
+      
+      // Fetch reports
+      const repRes = await api.get(`/reports?student_id=${user.id}`);
+      setReports(repRes.data || []);
+      
+      // Fetch jobs for opportunities
+      const jobsRes = await api.get('/jobs?status=active');
+      setJobs(jobsRes.data || []);
+      
+      // Fetch notices
+      const noticesRes = await api.get('/notices');
+      setNotices(noticesRes.data || []);
+      
+      // Update stats
+      setStats({
+        applicationsSent: apps.length,
+        interviewsScheduled: apps.filter(a => a.status === 'interview').length,
+        offersReceived: apps.filter(a => a.status === 'accepted').length,
+        profileViews: apps.reduce((sum, a) => sum + (a.views || 0), 0)
+      });
+      
+    } catch (error) {
+      console.error('Failed to fetch student data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch admin data
+  const fetchAdminData = async () => {
+    if (!user || user.role !== 'admin') return;
     
     try {
       setLoading(true);
       
-      // Fetch assignments (based on user role)
-      let assignmentsUrl = '/assignments';
-      if (user.role === 'student') {
-        assignmentsUrl = `/assignments?student_id=${user.id}`;
-      } else if (user.role === 'company') {
-        assignmentsUrl = `/assignments?company_id=${user.id}`;
-      } else if (user.role === 'admin') {
-        assignmentsUrl = '/assignments';
-      }
+      const statsRes = await api.get('/admin/stats');
+      setStats(statsRes.data);
       
-      const assignmentsRes = await api.get(assignmentsUrl);
-      setAssignments(assignmentsRes.data);
+      const noticesRes = await api.get('/notices');
+      setNotices(noticesRes.data || []);
       
-      // Fetch attendance
-      let attendanceUrl = '/attendance';
-      if (user.role === 'student') {
-        attendanceUrl = `/attendance?student_id=${user.id}`;
-      } else if (user.role === 'company') {
-        attendanceUrl = `/attendance?company_id=${user.id}`;
-      }
-      const attendanceRes = await api.get(attendanceUrl);
-      setAttendance(attendanceRes.data);
+      const jobsRes = await api.get('/jobs');
+      setJobs(jobsRes.data || []);
       
-      // Fetch reports (for admin/faculty view)
-      if (user.role === 'admin' || user.role === 'faculty') {
-        const reportsRes = await api.get('/reports');
-        setReports(reportsRes.data);
-      } else if (user.role === 'student') {
-        const reportsRes = await api.get(`/reports?student_id=${user.id}`);
-        setReports(reportsRes.data);
-      }
     } catch (error) {
-      console.error('Failed to fetch shared data:', error);
+      console.error('Failed to fetch admin data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch company data
+  const fetchCompanyData = async () => {
+    if (!user || user.role !== 'company') return;
+    
+    try {
+      setLoading(true);
+      
+      const jobsRes = await api.get(`/jobs?company_id=${user.id}`);
+      setJobs(jobsRes.data || []);
+      
+      const appsRes = await api.get(`/applications?company_id=${user.id}`);
+      setApplications(appsRes.data || []);
+      
+      const attRes = await api.get(`/attendance?company_id=${user.id}`);
+      setAttendance(attRes.data || []);
+      
+      const noticesRes = await api.get('/notices');
+      setNotices(noticesRes.data || []);
+      
+    } catch (error) {
+      console.error('Failed to fetch company data:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    if (!user) return;
+    
+    if (user.role === 'student') fetchStudentData();
+    else if (user.role === 'admin') fetchAdminData();
+    else if (user.role === 'company') fetchCompanyData();
   }, [user]);
 
   // Helper functions
   const getStudentAttendance = (studentId) => {
-    return attendance.filter(r => r.student_id === studentId).sort((a, b) => b.date.localeCompare(a.date));
+    return attendance.filter(r => r.student_id === studentId).sort((a, b) => b.date?.localeCompare(a.date));
   };
 
   const getStudentHours = (studentId) => {
@@ -82,34 +141,25 @@ export const SharedDataProvider = ({ children }) => {
     return Math.round((present / records.length) * 100);
   };
 
-  const getStudentAssignment = (studentId) => {
-    return assignments.find(a => a.student_id === studentId);
-  };
-
-  const getFacultyReports = (facultyId) => {
-    // Get student IDs assigned to this faculty
-    const studentIds = assignments
-      .filter(a => a.faculty_id === facultyId)
-      .map(a => a.student_id);
-    return reports.filter(r => studentIds.includes(r.student_id));
-  };
-
   const refreshData = () => {
-    fetchData();
+    if (user?.role === 'student') fetchStudentData();
+    else if (user?.role === 'admin') fetchAdminData();
+    else if (user?.role === 'company') fetchCompanyData();
   };
 
   return (
     <SharedDataContext.Provider
       value={{
-        assignments,
+        applications,
         attendance,
         reports,
+        jobs,
+        notices,
+        stats,
         loading,
         getStudentAttendance,
         getStudentHours,
         getAttendanceRate,
-        getStudentAssignment,
-        getFacultyReports,
         refreshData,
       }}
     >
