@@ -24,7 +24,7 @@ import { useAuth } from '../contexts/AuthContext';
 export const AdminDashboard = () => {
   const { user } = useAuth();
   
-  // State for real data
+  // State for real data - all initialized with default values
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeJobs: 0,
@@ -53,34 +53,39 @@ export const AdminDashboard = () => {
   const [filterType, setFilterType] = useState('all');
   const [expandedStudent, setExpandedStudent] = useState(null);
 
-  // Fetch all admin data
+  // Fetch all admin data - with safety checks
   const fetchAdminData = async () => {
     try {
       setRefreshing(true);
       
       // Fetch stats
       const statsRes = await api.get('/admin/stats');
-      setStats(statsRes.data);
+      setStats(statsRes.data || { totalStudents: 0, activeJobs: 0, placementRate: 0, pendingApprovals: 0, totalApplications: 0 });
       
       // Fetch pending companies
       const compRes = await api.get('/admin/pending-companies');
-      setPendingCompanies(compRes.data || []);
+      setPendingCompanies(Array.isArray(compRes.data) ? compRes.data : []);
       
       // Fetch notices
       const noticesRes = await api.get('/notices');
-      setNotices(noticesRes.data || []);
+      setNotices(Array.isArray(noticesRes.data) ? noticesRes.data : []);
       
       // Fetch all students
-      const studentsRes = await api.get('/users?role=student');
-      setStudents(studentsRes.data || []);
+      const studentsRes = await api.get('/admin/users?role=student');
+      setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : []);
       
       // Fetch all applications
       const appsRes = await api.get('/applications');
-      setApplications(appsRes.data || []);
+      setApplications(Array.isArray(appsRes.data) ? appsRes.data : []);
       
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
       toast.error('Failed to load dashboard data');
+      // Set empty arrays to prevent crashes
+      setNotices([]);
+      setStudents([]);
+      setApplications([]);
+      setPendingCompanies([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -91,6 +96,14 @@ export const AdminDashboard = () => {
     fetchAdminData();
   }, []);
 
+  // Safety effect to ensure arrays are never undefined
+  useEffect(() => {
+    if (!notices) setNotices([]);
+    if (!students) setStudents([]);
+    if (!applications) setApplications([]);
+    if (!pendingCompanies) setPendingCompanies([]);
+  }, [notices, students, applications, pendingCompanies]);
+
   // Notice CRUD operations
   const handleCreateNotice = async () => {
     if (!noticeForm.title || !noticeForm.content) {
@@ -100,21 +113,22 @@ export const AdminDashboard = () => {
     try {
       await api.post('/notices', noticeForm);
       toast.success('Notice created');
-      fetchAdminData(); // Refresh
+      fetchAdminData();
       setIsNoticeDialogOpen(false);
       setNoticeForm({ title: '', content: '', type: 'internship', pinned: false, start_date: '', end_date: '' });
     } catch (error) {
-      toast.error('Failed to create notice');
+      console.error('Create notice error:', error);
+      toast.error(error.response?.data?.detail || 'Failed to create notice');
     }
   };
 
   const handleEditNotice = (notice) => {
     setEditingNotice(notice);
     setNoticeForm({
-      title: notice.title,
-      content: notice.content,
-      type: notice.type,
-      pinned: notice.pinned,
+      title: notice.title || '',
+      content: notice.content || '',
+      type: notice.type || 'internship',
+      pinned: notice.pinned || false,
       start_date: notice.start_date || '',
       end_date: notice.end_date || '',
     });
@@ -131,7 +145,8 @@ export const AdminDashboard = () => {
       setEditingNotice(null);
       setNoticeForm({ title: '', content: '', type: 'internship', pinned: false, start_date: '', end_date: '' });
     } catch (error) {
-      toast.error('Update failed');
+      console.error('Update notice error:', error);
+      toast.error(error.response?.data?.detail || 'Update failed');
     }
   };
 
@@ -142,7 +157,8 @@ export const AdminDashboard = () => {
       toast.success('Notice deleted');
       fetchAdminData();
     } catch (error) {
-      toast.error('Delete failed');
+      console.error('Delete notice error:', error);
+      toast.error(error.response?.data?.detail || 'Delete failed');
     }
   };
 
@@ -152,7 +168,8 @@ export const AdminDashboard = () => {
       toast.success('Company approved');
       fetchAdminData();
     } catch (error) {
-      toast.error('Approval failed');
+      console.error('Approve company error:', error);
+      toast.error(error.response?.data?.detail || 'Approval failed');
     }
   };
 
@@ -163,38 +180,41 @@ export const AdminDashboard = () => {
       toast.success('Company rejected');
       fetchAdminData();
     } catch (error) {
-      toast.error('Rejection failed');
+      console.error('Reject company error:', error);
+      toast.error(error.response?.data?.detail || 'Rejection failed');
     }
   };
 
   const getStatusColor = (status) => {
     const colors = {
-      active: 'bg-green-100 text-green-700',
-      pending: 'bg-yellow-100 text-yellow-700',
-      accepted: 'bg-green-100 text-green-700',
-      interview: 'bg-blue-100 text-blue-700',
-      rejected: 'bg-red-100 text-red-700',
-      completed: 'bg-gray-100 text-gray-700'
+      active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+      pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+      accepted: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+      interview: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+      rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+      completed: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
     };
-    return colors[status] || 'bg-gray-100 text-gray-700';
+    return colors[status] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
   };
 
   const getTypeColor = (type) => {
     const colors = {
-      internship: 'bg-blue-100 text-blue-700',
-      placement: 'bg-green-100 text-green-700',
-      workshop: 'bg-pink-100 text-pink-700',
-      assessment: 'bg-indigo-100 text-indigo-700'
+      internship: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+      placement: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+      workshop: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300',
+      assessment: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
     };
-    return colors[type] || 'bg-gray-100 text-gray-700';
+    return colors[type] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
   };
 
-  const filteredNotices = notices.filter(n => {
-    const matchesSearch = n.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         n.content?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || n.type === filterType;
-    return matchesSearch && matchesType;
-  });
+  const filteredNotices = notices && notices.length > 0 
+    ? notices.filter(n => {
+        const matchesSearch = n.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             n.content?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesType = filterType === 'all' || n.type === filterType;
+        return matchesSearch && matchesType;
+      })
+    : [];
 
   if (loading) {
     return (
@@ -215,7 +235,7 @@ export const AdminDashboard = () => {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Admin Dashboard</h1>
-              <p className="text-gray-500">Manage users, notices, and track placement progress</p>
+              <p className="text-gray-500 dark:text-gray-400">Manage users, notices, and track placement progress</p>
             </div>
           </div>
           <Button 
@@ -237,7 +257,7 @@ export const AdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 mb-1">Total Students</p>
-                <p className="text-2xl font-bold">{stats.totalStudents}</p>
+                <p className="text-2xl font-bold">{stats.totalStudents || 0}</p>
               </div>
               <div className="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center">
                 <Users className="w-5 h-5 text-blue-600" />
@@ -250,7 +270,7 @@ export const AdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 mb-1">Active Jobs</p>
-                <p className="text-2xl font-bold">{stats.activeJobs}</p>
+                <p className="text-2xl font-bold">{stats.activeJobs || 0}</p>
               </div>
               <div className="w-11 h-11 bg-green-100 rounded-xl flex items-center justify-center">
                 <Briefcase className="w-5 h-5 text-green-600" />
@@ -263,7 +283,7 @@ export const AdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 mb-1">Placement Rate</p>
-                <p className="text-2xl font-bold">{stats.placementRate}%</p>
+                <p className="text-2xl font-bold">{stats.placementRate || 0}%</p>
               </div>
               <div className="w-11 h-11 bg-purple-100 rounded-xl flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-purple-600" />
@@ -276,7 +296,7 @@ export const AdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 mb-1">Pending Approvals</p>
-                <p className="text-2xl font-bold">{stats.pendingApprovals}</p>
+                <p className="text-2xl font-bold">{stats.pendingApprovals || 0}</p>
               </div>
               <div className="w-11 h-11 bg-yellow-100 rounded-xl flex items-center justify-center">
                 <Building className="w-5 h-5 text-yellow-600" />
@@ -289,7 +309,7 @@ export const AdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 mb-1">Total Applications</p>
-                <p className="text-2xl font-bold">{stats.totalApplications || applications.length}</p>
+                <p className="text-2xl font-bold">{applications.length}</p>
               </div>
               <div className="w-11 h-11 bg-teal-100 rounded-xl flex items-center justify-center">
                 <FileText className="w-5 h-5 text-teal-600" />
@@ -300,7 +320,7 @@ export const AdminDashboard = () => {
       </div>
 
       <Tabs defaultValue="notices" className="space-y-6">
-        <TabsList className="bg-gray-100 rounded-xl p-1 h-auto flex-wrap gap-1">
+        <TabsList className="bg-gray-100 dark:bg-gray-800 rounded-xl p-1 h-auto flex-wrap gap-1">
           <TabsTrigger value="notices" className="rounded-lg">
             <Bell className="w-4 h-4 mr-2" /> Notices
           </TabsTrigger>
@@ -317,12 +337,12 @@ export const AdminDashboard = () => {
 
         {/* NOTICES TAB */}
         <TabsContent value="notices" className="space-y-6">
-          <Card className="border-0 shadow-md">
+          <Card className="border-0 shadow-md dark:bg-gray-800">
             <CardHeader>
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle>Notice Management</CardTitle>
-                  <CardDescription>Create, edit, and manage campus notices</CardDescription>
+                  <CardTitle className="dark:text-gray-100">Notice Management</CardTitle>
+                  <CardDescription className="dark:text-gray-400">Create, edit, and manage campus notices</CardDescription>
                 </div>
                 <Dialog open={isNoticeDialogOpen} onOpenChange={setIsNoticeDialogOpen}>
                   <DialogTrigger asChild>
@@ -333,31 +353,35 @@ export const AdminDashboard = () => {
                       <Plus className="w-4 h-4 mr-2" /> Create Notice
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
+                  <DialogContent className="max-w-2xl dark:bg-gray-800 dark:border-gray-700">
                     <DialogHeader>
-                      <DialogTitle>{editingNotice ? 'Edit Notice' : 'Create New Notice'}</DialogTitle>
+                      <DialogTitle className="dark:text-gray-100">{editingNotice ? 'Edit Notice' : 'Create New Notice'}</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                       <div>
-                        <Label>Title *</Label>
+                        <Label className="dark:text-gray-300">Title *</Label>
                         <Input 
                           value={noticeForm.title} 
                           onChange={e => setNoticeForm({...noticeForm, title: e.target.value})} 
+                          className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         />
                       </div>
                       <div>
-                        <Label>Content *</Label>
+                        <Label className="dark:text-gray-300">Content *</Label>
                         <Textarea 
                           rows={4} 
                           value={noticeForm.content} 
                           onChange={e => setNoticeForm({...noticeForm, content: e.target.value})} 
+                          className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label>Type</Label>
+                          <Label className="dark:text-gray-300">Type</Label>
                           <Select value={noticeForm.type} onValueChange={v => setNoticeForm({...noticeForm, type: v})}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                              <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="internship">Internship</SelectItem>
                               <SelectItem value="placement">Placement</SelectItem>
@@ -367,9 +391,11 @@ export const AdminDashboard = () => {
                           </Select>
                         </div>
                         <div>
-                          <Label>Pin Notice</Label>
+                          <Label className="dark:text-gray-300">Pin Notice</Label>
                           <Select value={noticeForm.pinned ? 'yes' : 'no'} onValueChange={v => setNoticeForm({...noticeForm, pinned: v === 'yes'})}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                              <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="no">No</SelectItem>
                               <SelectItem value="yes">Yes (Stays on top)</SelectItem>
@@ -379,19 +405,21 @@ export const AdminDashboard = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label>Start Date (Optional)</Label>
+                          <Label className="dark:text-gray-300">Start Date (Optional)</Label>
                           <Input 
                             type="date" 
                             value={noticeForm.start_date} 
                             onChange={e => setNoticeForm({...noticeForm, start_date: e.target.value})} 
+                            className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                           />
                         </div>
                         <div>
-                          <Label>End Date (Optional)</Label>
+                          <Label className="dark:text-gray-300">End Date (Optional)</Label>
                           <Input 
                             type="date" 
                             value={noticeForm.end_date} 
                             onChange={e => setNoticeForm({...noticeForm, end_date: e.target.value})} 
+                            className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                           />
                         </div>
                       </div>
@@ -415,11 +443,11 @@ export const AdminDashboard = () => {
                     placeholder="Search notices..." 
                     value={searchTerm} 
                     onChange={e => setSearchTerm(e.target.value)} 
-                    className="pl-9" 
+                    className="pl-9 dark:bg-gray-700 dark:border-gray-600 dark:text-white" 
                   />
                 </div>
                 <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="w-44">
+                  <SelectTrigger className="w-44 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                     <Filter className="w-4 h-4 mr-2" />
                     <SelectValue placeholder="Filter by type" />
                   </SelectTrigger>
@@ -436,22 +464,30 @@ export const AdminDashboard = () => {
               {/* Notices List */}
               <div className="space-y-3">
                 {filteredNotices.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                     <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
                     <p>No notices found</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-3"
+                      onClick={() => setIsNoticeDialogOpen(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-2" /> Create Your First Notice
+                    </Button>
                   </div>
                 ) : (
                   filteredNotices.map(notice => (
-                    <div key={notice.id} className="p-4 bg-gray-50 rounded-xl border">
+                    <div key={notice.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border dark:border-gray-600">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h3 className="font-semibold">{notice.title}</h3>
+                            <h3 className="font-semibold dark:text-gray-200">{notice.title}</h3>
                             <Badge className={getTypeColor(notice.type)}>{notice.type}</Badge>
-                            {notice.pinned && <Badge variant="outline">📌 Pinned</Badge>}
+                            {notice.pinned && <Badge variant="outline" className="dark:border-gray-500">📌 Pinned</Badge>}
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">{notice.content}</p>
-                          <div className="flex gap-3 text-xs text-gray-400">
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{notice.content}</p>
+                          <div className="flex gap-3 text-xs text-gray-400 dark:text-gray-500">
                             {notice.start_date && <span>📅 Start: {notice.start_date}</span>}
                             {notice.end_date && <span>⏰ End: {notice.end_date}</span>}
                             <span>👤 Posted: {new Date(notice.created_at).toLocaleDateString()}</span>
@@ -476,25 +512,25 @@ export const AdminDashboard = () => {
 
         {/* COMPANY APPROVALS TAB */}
         <TabsContent value="companies" className="space-y-4">
-          <Card className="border-0 shadow-md">
+          <Card className="border-0 shadow-md dark:bg-gray-800">
             <CardHeader>
-              <CardTitle>Company Approvals</CardTitle>
-              <CardDescription>Review and verify new company registrations</CardDescription>
+              <CardTitle className="dark:text-gray-100">Company Approvals</CardTitle>
+              <CardDescription className="dark:text-gray-400">Review and verify new company registrations</CardDescription>
             </CardHeader>
             <CardContent>
-              {pendingCompanies.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+              {!pendingCompanies || pendingCompanies.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                   <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-500 opacity-50" />
                   <p>No pending company approvals</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {pendingCompanies.map(company => (
-                    <div key={company.id} className="p-4 bg-gray-50 rounded-xl flex justify-between items-center">
+                    <div key={company.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl flex justify-between items-center">
                       <div>
-                        <h4 className="font-semibold">{company.name}</h4>
-                        <p className="text-sm text-gray-500">{company.contact_email}</p>
-                        <p className="text-sm text-gray-500">{company.industry || 'Industry not specified'}</p>
+                        <h4 className="font-semibold dark:text-gray-200">{company.name}</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{company.contact_email}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{company.industry || 'Industry not specified'}</p>
                         <p className="text-xs text-gray-400">Registered: {new Date(company.created_at).toLocaleDateString()}</p>
                       </div>
                       <div className="flex gap-2">
@@ -515,14 +551,14 @@ export const AdminDashboard = () => {
 
         {/* STUDENTS TAB */}
         <TabsContent value="students" className="space-y-6">
-          <Card className="border-0 shadow-md">
+          <Card className="border-0 shadow-md dark:bg-gray-800">
             <CardHeader>
-              <CardTitle>Student Management</CardTitle>
-              <CardDescription>View all registered students and their progress</CardDescription>
+              <CardTitle className="dark:text-gray-100">Student Management</CardTitle>
+              <CardDescription className="dark:text-gray-400">View all registered students and their progress</CardDescription>
             </CardHeader>
             <CardContent>
-              {students.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+              {!students || students.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                   <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p>No students registered yet</p>
                 </div>
@@ -539,7 +575,7 @@ export const AdminDashboard = () => {
                         animate={{ opacity: 1, y: 0 }} 
                         transition={{ delay: i * 0.05 }}
                       >
-                        <Card className="overflow-hidden">
+                        <Card className="overflow-hidden dark:bg-gray-800 dark:border-gray-700">
                           <CardContent className="p-4">
                             <div className="flex flex-wrap items-center justify-between gap-4">
                               <div className="flex items-center gap-3">
@@ -547,8 +583,8 @@ export const AdminDashboard = () => {
                                   {student.full_name?.charAt(0) || 'S'}
                                 </div>
                                 <div>
-                                  <h3 className="font-semibold">{student.full_name || 'Student'}</h3>
-                                  <p className="text-xs text-gray-500">{student.email}</p>
+                                  <h3 className="font-semibold dark:text-gray-200">{student.full_name || 'Student'}</h3>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">{student.email}</p>
                                   {student.student_id && (
                                     <p className="text-xs text-gray-400">ID: {student.student_id}</p>
                                   )}
@@ -556,14 +592,14 @@ export const AdminDashboard = () => {
                               </div>
                               <div className="flex items-center gap-4">
                                 <div className="text-center">
-                                  <div className="text-lg font-bold text-blue-600">{studentApps.length}</div>
-                                  <div className="text-xs text-gray-500">Applications</div>
+                                  <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{studentApps.length}</div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">Applications</div>
                                 </div>
                                 <div className="text-center">
-                                  <div className="text-lg font-bold text-green-600">
+                                  <div className="text-lg font-bold text-green-600 dark:text-green-400">
                                     {studentApps.filter(a => a.status === 'accepted').length}
                                   </div>
-                                  <div className="text-xs text-gray-500">Offers</div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">Offers</div>
                                 </div>
                                 <Button 
                                   variant="ghost" 
@@ -576,19 +612,19 @@ export const AdminDashboard = () => {
                             </div>
                             
                             {isExpanded && (
-                              <div className="mt-4 pt-4 border-t">
-                                <h4 className="text-sm font-semibold mb-2">Recent Applications</h4>
+                              <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                                <h4 className="text-sm font-semibold mb-2 dark:text-gray-300">Recent Applications</h4>
                                 {studentApps.length === 0 ? (
-                                  <p className="text-sm text-gray-500">No applications yet</p>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">No applications yet</p>
                                 ) : (
                                   <div className="space-y-2">
                                     {studentApps.slice(0, 5).map(app => (
-                                      <div key={app.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                                      <div key={app.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                                         <div>
-                                          <p className="text-sm font-medium">{app.job_title || 'Position'}</p>
-                                          <p className="text-xs text-gray-500">{app.company_name}</p>
+                                          <p className="text-sm font-medium dark:text-gray-200">{app.job_title || 'Position'}</p>
+                                          <p className="text-xs text-gray-500 dark:text-gray-400">{app.company_name}</p>
                                         </div>
-                                        <Badge className={getStatusColor(app.status)}>{app.status}</Badge>
+                                        <Badge className={getStatusColor(app.status)}>{app.status || 'pending'}</Badge>
                                       </div>
                                     ))}
                                   </div>
@@ -610,9 +646,9 @@ export const AdminDashboard = () => {
         <TabsContent value="analytics" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Placement Stats */}
-            <Card className="border-0 shadow-md">
+            <Card className="border-0 shadow-md dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2 dark:text-gray-100">
                   <BarChart3 className="w-5 h-5" />
                   Placement Overview
                 </CardTitle>
@@ -620,28 +656,28 @@ export const AdminDashboard = () => {
               <CardContent className="space-y-6">
                 <div>
                   <div className="flex justify-between text-sm mb-2">
-                    <span>Overall Placement Rate</span>
-                    <span className="font-bold">{stats.placementRate}%</span>
+                    <span className="dark:text-gray-300">Overall Placement Rate</span>
+                    <span className="font-bold dark:text-gray-200">{stats.placementRate || 0}%</span>
                   </div>
-                  <Progress value={stats.placementRate} className="h-3" />
+                  <Progress value={stats.placementRate || 0} className="h-3" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 bg-blue-50 rounded-xl">
-                    <div className="text-2xl font-bold text-blue-600">{stats.totalStudents}</div>
-                    <div className="text-sm text-gray-600">Total Students</div>
+                  <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalStudents || 0}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Total Students</div>
                   </div>
-                  <div className="text-center p-4 bg-green-50 rounded-xl">
-                    <div className="text-2xl font-bold text-green-600">{stats.activeJobs}</div>
-                    <div className="text-sm text-gray-600">Active Jobs</div>
+                  <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.activeJobs || 0}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Active Jobs</div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Application Stats */}
-            <Card className="border-0 shadow-md">
+            <Card className="border-0 shadow-md dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2 dark:text-gray-100">
                   <FileText className="w-5 h-5" />
                   Application Status
                 </CardTitle>
@@ -656,10 +692,10 @@ export const AdminDashboard = () => {
                   ].map((item, i) => (
                     <div key={i}>
                       <div className="flex justify-between text-sm mb-1">
-                        <span>{item.label}</span>
-                        <span>{item.count}</span>
+                        <span className="dark:text-gray-300">{item.label}</span>
+                        <span className="dark:text-gray-300">{item.count}</span>
                       </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div 
                           className={`h-full ${item.color}`} 
                           style={{ width: `${applications.length ? (item.count / applications.length) * 100 : 0}%` }}
@@ -673,33 +709,34 @@ export const AdminDashboard = () => {
           </div>
 
           {/* Recent Activity */}
-          <Card className="border-0 shadow-md">
+          <Card className="border-0 shadow-md dark:bg-gray-800">
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-base flex items-center gap-2 dark:text-gray-100">
                 <Clock className="w-5 h-5" />
                 Recent Activity
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {applications.slice(0, 10).map(app => (
-                  <div key={app.id} className="flex justify-between items-center p-2 border-b">
-                    <div>
-                      <p className="text-sm">
-                        <span className="font-medium">{app.student_name || 'Student'}</span>
-                        {' applied for '}
-                        <span className="font-medium">{app.job_title || 'position'}</span>
-                      </p>
-                      <p className="text-xs text-gray-500">{new Date(app.applied_at).toLocaleDateString()}</p>
-                    </div>
-                    <Badge className={getStatusColor(app.status)}>{app.status}</Badge>
-                  </div>
-                ))}
-                {applications.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
+                {applications.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                     <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
                     <p>No recent activity</p>
                   </div>
+                ) : (
+                  applications.slice(0, 10).map(app => (
+                    <div key={app.id} className="flex justify-between items-center p-2 border-b dark:border-gray-700">
+                      <div>
+                        <p className="text-sm dark:text-gray-300">
+                          <span className="font-medium dark:text-gray-200">{app.student_name || 'Student'}</span>
+                          {' applied for '}
+                          <span className="font-medium dark:text-gray-200">{app.job_title || 'position'}</span>
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(app.applied_at).toLocaleDateString()}</p>
+                      </div>
+                      <Badge className={getStatusColor(app.status)}>{app.status || 'pending'}</Badge>
+                    </div>
+                  ))
                 )}
               </div>
             </CardContent>

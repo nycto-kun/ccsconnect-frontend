@@ -32,8 +32,11 @@ const ChangePassword = ({ onClose }) => {
     
     try {
       await api.post('/auth/change-password', null, {
-        params: { old_password: oldPassword, new_password: newPassword }
-      });
+     params: { 
+     old_password: oldPassword, 
+    new_password: newPassword 
+  }
+});
       toast.success('Password changed successfully!');
       setTimeout(() => {
         if (onClose) onClose();
