@@ -1,52 +1,73 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Users, AlertCircle, GraduationCap, TrendingUp, Calendar } from 'lucide-react';
+import { Users, AlertCircle, GraduationCap, TrendingUp, Calendar, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
-import { useSharedData } from '../contexts/SharedDataContext';
-import { useNavigate } from 'react-router-dom';
+import api from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
-export const Interns = ({ userRole, userId }) => {
-  const { assignments, getAttendanceRate } = useSharedData();
-  const navigate = useNavigate();
+export const Interns = () => {
+  const { user } = useAuth();
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [applications, setApplications] = useState([]);
 
-  // Extended mock students with academic data
-  const students = [
-    { id: 'stu-001', name: 'Arjun Sharma', rollNumber: '20CS001', department: 'Computer Science', year: 'Final Year', cgpa: 8.7, hasActive: true, assignedJob: 'Software Engineer Intern' },
-    { id: 'stu-002', name: 'Priya Nair', rollNumber: '20CS024', department: 'Computer Science', year: 'Final Year', cgpa: 9.2, hasActive: true, assignedJob: 'Data Scientist Intern' },
-    { id: 'stu-003', name: 'Rohan Mehta', rollNumber: '20EC012', department: 'Electronics', year: 'Third Year', cgpa: 8.1, hasActive: true, assignedJob: 'Product Manager Intern' },
-    { id: 'stu-004', name: 'Sneha Patel', rollNumber: '20ME005', department: 'Mechanical', year: 'Final Year', cgpa: 7.9, hasActive: true, assignedJob: 'Operations Intern' },
-    { id: 'stu-005', name: 'Neha Sharma', rollNumber: '20CS078', department: 'Computer Science', year: 'Final Year', cgpa: 8.9, hasActive: false, assignedJob: null },
-    { id: 'stu-006', name: 'Amit Singh', rollNumber: '20CS101', department: 'Computer Science', year: 'Final Year', cgpa: 7.5, hasActive: false, assignedJob: null },
-    { id: 'stu-007', name: 'Kavita Desai', rollNumber: '20EC045', department: 'Electronics', year: 'Third Year', cgpa: 8.4, hasActive: false, assignedJob: null },
-  ];
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoading(true);
+        // Fetch all students
+        const studentsRes = await api.get('/admin/users?role=student');
+        setStudents(studentsRes.data || []);
+        
+        // Fetch applications to see who has offers
+        const appsRes = await api.get('/applications');
+        setApplications(appsRes.data || []);
+      } catch (error) {
+        console.error('Failed to fetch students:', error);
+        setStudents([]);
+        setApplications([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (user?.role === 'admin') {
+      fetchStudents();
+    }
+  }, [user]);
 
-  // For students with an active internship, get attendance rate
-  const internsWithoutOJT = students.filter(s => !s.hasActive).map(student => {
-    const assignment = assignments.find(a => a.studentId === student.id && a.status === 'active');
-    const attendanceRate = assignment ? getAttendanceRate(student.id) : null;
-    return { ...student, attendanceRate };
+  // Find students without active internships (no accepted applications)
+  const studentsWithoutInternship = students.filter(student => {
+    const hasAcceptedOffer = applications.some(app => 
+      app.student_id === student.id && app.status === 'accepted'
+    );
+    return !hasAcceptedOffer;
   });
 
-  const handleViewProfile = (studentId) => {
-    // For now, just alert. Later you can navigate to a student profile route.
-    alert(`View profile for student ${studentId} – feature coming soon.`);
-    // navigate(`/student/${studentId}`); // uncomment when you create the route
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-12 space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Students Without Active Internship</h2>
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+          Students Without Active Internship
+        </h2>
         <Badge variant="outline" className="text-sm">
-          {internsWithoutOJT.length} students
+          {studentsWithoutInternship.length} students
         </Badge>
       </div>
 
-      {internsWithoutOJT.length === 0 ? (
-        <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
+      {studentsWithoutInternship.length === 0 ? (
+        <Card className="border-0 shadow-md dark:bg-gray-800">
           <CardContent className="py-16 text-center text-gray-500 dark:text-gray-400">
             <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>No students currently without an active internship.</p>
@@ -54,23 +75,26 @@ export const Interns = ({ userRole, userId }) => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {internsWithoutOJT.map(student => (
+          {studentsWithoutInternship.map((student, index) => (
             <motion.div
               key={student.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
               whileHover={{ y: -4 }}
               className="group"
             >
-              <Card className="h-full border-0 shadow-md hover:shadow-lg transition-all duration-300 dark:bg-gray-800 dark:border-gray-700">
+              <Card className="h-full border-0 shadow-md hover:shadow-lg transition-all dark:bg-gray-800">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-lg">{student.name}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{student.rollNumber}</p>
+                      <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-lg">
+                        {student.full_name || 'Student'}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{student.email}</p>
                     </div>
                     <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                      No OJT
+                      No Internship
                     </Badge>
                   </div>
                 </CardHeader>
@@ -78,36 +102,21 @@ export const Interns = ({ userRole, userId }) => {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <GraduationCap className="w-4 h-4" />
-                      <span>{student.department} · {student.year}</span>
+                      <span>{student.department || 'Department not set'} · {student.year || 'Year not set'}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">CGPA</span>
-                      <span className="font-medium text-gray-800 dark:text-gray-200">{student.cgpa} / 10</span>
-                    </div>
-                    {student.attendanceRate !== null ? (
-                      <div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600 dark:text-gray-400">Attendance Rate</span>
-                          <span className={`font-medium ${student.attendanceRate < 75 ? 'text-red-500' : 'text-green-500'}`}>
-                            {student.attendanceRate}%
-                          </span>
-                        </div>
-                        <Progress value={student.attendanceRate} className="h-1.5 mt-1" />
-                      </div>
-                    ) : (
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        <AlertCircle className="w-4 h-4 inline mr-1" />
-                        No internship assigned yet
+                    {student.gpa && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">CGPA</span>
+                        <span className="font-medium text-gray-800 dark:text-gray-200">{student.gpa} / 10</span>
                       </div>
                     )}
                   </div>
-
                   <div className="mt-4">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleViewProfile(student.id)}
                       className="w-full dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                      onClick={() => window.location.href = `/students/${student.id}`}
                     >
                       View Profile
                     </Button>
