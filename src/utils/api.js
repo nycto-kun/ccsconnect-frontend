@@ -6,21 +6,21 @@ const api = axios.create({
   baseURL: API_URL,
   headers: { 
     'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true'  // Skip ngrok warning page
   },
-  withCredentials: false,  // Important for CORS
+  withCredentials: false,
 });
 
-// Add token to requests
+// Add token and ngrok header to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // THIS IS CRITICAL FOR NGROK - MUST BE SENT WITH EVERY REQUEST
+  config.headers['ngrok-skip-browser-warning'] = 'true';
   return config;
 });
 
-// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
