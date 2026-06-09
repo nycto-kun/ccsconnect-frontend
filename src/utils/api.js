@@ -34,4 +34,18 @@ api.interceptors.response.use(
   }
 );
 
+// In src/utils/api.js, add this interceptor
+api.interceptors.request.use((config) => {
+  // Add trailing slash to URLs that don't have one and don't have query params
+  if (config.url && !config.url.includes('?') && !config.url.endsWith('/')) {
+    config.url = config.url + '/';
+  }
+  // Handle URLs with query params
+  if (config.url && config.url.includes('?') && !config.url.split('?')[0].endsWith('/')) {
+    const [path, query] = config.url.split('?');
+    config.url = path + '/?' + query;
+  }
+  return config;
+});
+
 export default api;
