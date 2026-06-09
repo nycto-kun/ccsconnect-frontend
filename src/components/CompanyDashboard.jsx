@@ -100,15 +100,15 @@ export const CompanyDashboard = () => {
       setJobPosts(jobsRes.data || []);
       
       // Fetch applications for company
-      const appsRes = await api.get(`/applications?company_id=${companyId || user.id}`);
+      const appsRes = await api.get(`/applications/?company_id=${companyId || user.id}`);
       setApplications(appsRes.data || []);
       
       // Fetch attendance
-      const attRes = await api.get(`/attendance?company_id=${companyId || user.id}`);
+      const attRes = await api.get(`/attendance/?company_id=${companyId || user.id}`);
       setAttendance(attRes.data || []);
       
       // Fetch assigned interns (from assignments)
-      const assignmentsRes = await api.get(`/assignments?company_id=${companyId || user.id}`);
+      const assignmentsRes = await api.get(`/assignments/?company_id=${companyId || user.id}`);
       setInterns(assignmentsRes.data || []);
       
     } catch (error) {
