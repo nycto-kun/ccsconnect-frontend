@@ -10,15 +10,20 @@ const api = axios.create({
   withCredentials: false,
 });
 
-// Add token and ngrok header to EVERY request
+// IMPORTANT: This interceptor runs BEFORE every request
 api.interceptors.request.use((config) => {
-  // CRITICAL: This header must be present for ngrok to work
+  // ngrok header - MUST be present for every request
   config.headers['ngrok-skip-browser-warning'] = 'true';
   
+  // Add auth token if present
   const token = localStorage.getItem('access_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  console.log('Request URL:', config.url);
+  console.log('Request Headers:', config.headers);
+  
   return config;
 });
 
