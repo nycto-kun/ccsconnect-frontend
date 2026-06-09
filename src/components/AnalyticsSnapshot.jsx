@@ -6,6 +6,7 @@ import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
+import { FileText } from 'lucide-react';
 
 export const AnalyticsSnapshot = () => {
   const { user } = useAuth();
@@ -25,7 +26,7 @@ export const AnalyticsSnapshot = () => {
         setIsLoading(true);
         
         // Fetch admin stats
-        const statsRes = await api.get('/admin/stats');
+        const statsRes = await api.get('/admin/stats/');
         setStats(statsRes.data);
         
         // Fetch recent applications

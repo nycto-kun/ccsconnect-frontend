@@ -59,7 +59,7 @@ export const AdminDashboard = () => {
       setRefreshing(true);
       
       // Fetch stats
-      const statsRes = await api.get('/admin/stats');
+      const statsRes = await api.get('/admin/stats/');
       setStats(statsRes.data || { totalStudents: 0, activeJobs: 0, placementRate: 0, pendingApprovals: 0, totalApplications: 0 });
       
       // Fetch pending companies
