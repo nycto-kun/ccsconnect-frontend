@@ -18,7 +18,7 @@ const ForgotPassword = () => {
     setLoading(true);
     
     try {
-      await api.post('/auth/forgot-password', null, { params: { email } });
+      await api.post('/auth/forgot-password/', null, { params: { email } });
       setSent(true);
       toast.success('Password reset link sent! Check your email.');
     } catch (err) {

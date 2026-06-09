@@ -75,13 +75,13 @@ export const SharedDataProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      const statsRes = await api.get('/admin/stats');
+      const statsRes = await api.get('/admin/stats/');
       setStats(statsRes.data);
       
       const noticesRes = await api.get('/notices/');
       setNotices(noticesRes.data || []);
       
-      const jobsRes = await api.get('/jobs');
+      const jobsRes = await api.get('/jobs/');
       setJobs(jobsRes.data || []);
       
     } catch (error) {

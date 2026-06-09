@@ -109,7 +109,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
 
   const handleSave = async () => {
     try {
-      const response = await api.put('/auth/profile', formData);
+      const response = await api.put('/auth/profile/', formData);
       setProfileData(prev => ({ ...prev, ...response.data }));
       setEditMode(false);
       toast.success('Profile updated successfully');

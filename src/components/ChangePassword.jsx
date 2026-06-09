@@ -31,7 +31,7 @@ const ChangePassword = ({ onClose }) => {
     setLoading(true);
     
     try {
-      await api.post('/auth/change-password', null, {
+      await api.post('/auth/change-password/', null, {
      params: { 
      old_password: oldPassword, 
     new_password: newPassword 

@@ -97,7 +97,7 @@ export const StudentDashboard = () => {
     }
     
     try {
-      await api.post('/reports', {
+      await api.post('/reports/', {
         date_str: newReport.date,
         title: newReport.title,
         description: newReport.description,

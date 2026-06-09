@@ -134,7 +134,7 @@ export const EnhancedOpportunities = () => {
     }
     
     try {
-      await api.post('/applications', null, { params: { job_id: jobId } });
+      await api.post('/applications/', null, { params: { job_id: jobId } });
       toast.success('Application submitted successfully!');
       setAppliedJobs(prev => new Set(prev).add(jobId));
       fetchOpportunities();
@@ -154,7 +154,7 @@ export const EnhancedOpportunities = () => {
     
     try {
       if (isBookmarked) {
-        await api.delete(`/bookmarks/${jobId}`);
+        await api.delete(`/bookmarks/${jobId}/`);
         setBookmarks(prev => {
           const newSet = new Set(prev);
           newSet.delete(jobId);
@@ -162,7 +162,7 @@ export const EnhancedOpportunities = () => {
         });
         toast.success('Removed from bookmarks');
       } else {
-        await api.post(`/bookmarks/${jobId}`);
+        await api.post(`/bookmarks/${jobId}/`);
         setBookmarks(prev => new Set(prev).add(jobId));
         toast.success('Added to bookmarks');
       }

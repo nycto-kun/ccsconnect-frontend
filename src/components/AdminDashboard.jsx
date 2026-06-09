@@ -75,7 +75,7 @@ export const AdminDashboard = () => {
       setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : []);
       
       // Fetch all applications
-      const appsRes = await api.get('/applications');
+      const appsRes = await api.get('/applications/');
       setApplications(Array.isArray(appsRes.data) ? appsRes.data : []);
       
     } catch (error) {
@@ -138,7 +138,7 @@ export const AdminDashboard = () => {
   const handleUpdateNotice = async () => {
     if (!editingNotice) return;
     try {
-      await api.put(`/notices/${editingNotice.id}`, noticeForm);
+      await api.put(`/notices/${editingNotice.id}/`, noticeForm);
       toast.success('Notice updated');
       fetchAdminData();
       setIsNoticeDialogOpen(false);

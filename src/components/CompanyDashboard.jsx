@@ -143,7 +143,7 @@ export const CompanyDashboard = () => {
         status: 'active'
       };
       
-      const response = await api.post('/jobs', jobData);
+      const response = await api.post('/jobs/', jobData);
       toast.success('Job posted successfully');
       setIsJobDialogOpen(false);
       setNewJob({
@@ -170,7 +170,7 @@ export const CompanyDashboard = () => {
     }
     
     try {
-      await api.delete(`/jobs/${jobId}`);
+      await api.delete(`/jobs/${jobId}/`);
       toast.success('Job deleted successfully');
       fetchCompanyData();
     } catch (error) {
