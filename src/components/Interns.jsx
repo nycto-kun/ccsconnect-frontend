@@ -37,7 +37,7 @@ export const Interns = () => {
       setRefreshing(true);
       
       // Fetch all students
-      const studentsRes = await api.get('/admin/users/?role=student');
+      const studentsRes = await api.get('/admin/users?role=student');
       const studentsData = studentsRes.data || [];
       setStudents(studentsData);
       
