@@ -6,13 +6,15 @@ const api = axios.create({
   baseURL: API_URL,
   headers: { 
     'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true'
   },
   withCredentials: false,
 });
 
-// Add token to requests only - NO trailing slash modification
+// Add token and ngrok header to EVERY request
 api.interceptors.request.use((config) => {
+  // CRITICAL: This header must be present for ngrok to work
+  config.headers['ngrok-skip-browser-warning'] = 'true';
+  
   const token = localStorage.getItem('access_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

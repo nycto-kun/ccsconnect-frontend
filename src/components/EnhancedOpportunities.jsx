@@ -31,7 +31,7 @@ export const EnhancedOpportunities = () => {
       let data = [];
       
       // First, get all active jobs
-      const jobsRes = await api.get('/jobs?status=active');
+      const jobsRes = await api.get('/jobs/?status=active');
       const jobs = jobsRes.data || [];
       
       if (user?.role === 'student') {

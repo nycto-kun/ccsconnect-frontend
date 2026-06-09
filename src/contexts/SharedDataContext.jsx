@@ -46,7 +46,7 @@ export const SharedDataProvider = ({ children }) => {
       setReports(repRes.data || []);
       
       // Fetch jobs for opportunities
-      const jobsRes = await api.get('/jobs?status=active');
+      const jobsRes = await api.get('/jobs/?status=active');
       setJobs(jobsRes.data || []);
       
       // Fetch notices
@@ -98,7 +98,7 @@ export const SharedDataProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      const jobsRes = await api.get(`/jobs?company_id=${user.id}`);
+      const jobsRes = await api.get(`/jobs/?company_id=${user.id}`);
       setJobs(jobsRes.data || []);
       
       const appsRes = await api.get(`/applications?company_id=${user.id}`);
