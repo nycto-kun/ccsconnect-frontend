@@ -96,18 +96,18 @@ const handleSubmitReport = async (e) => {
   }
   
   try {
-    // Make sure parameter names match backend exactly
+    // IMPORTANT: The parameter name MUST be 'date_str', not 'date'
     await api.post('/reports/', {
-      date_str: newReport.date,     // Note: date_str, not date
+      date_str: newReport.date,     // Note: date_str (matches backend)
       title: newReport.title,
       description: newReport.description,
       hours: parseFloat(newReport.hours),
-      tasks: newReport.tasks,
+      tasks: newReport.tasks || '',
     });
     
     toast.success('Report submitted successfully');
     
-    // Refresh reports
+    // Refresh reports list
     const repRes = await api.get(`/reports/?student_id=${user.id}`);
     setReports(repRes.data || []);
     
@@ -122,9 +122,11 @@ const handleSubmitReport = async (e) => {
     
   } catch (error) {
     console.error('Failed to submit report:', error);
-    toast.error(error.response?.data?.detail || 'Failed to submit report');
+    const errorMsg = error.response?.data?.detail || 'Failed to submit report';
+    toast.error(errorMsg);
   }
 };
+
   const recentApplications = applications.slice(0, 3);
   const recentReports = reports.slice(0, 5);
 
