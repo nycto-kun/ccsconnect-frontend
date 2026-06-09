@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { User, Lock, Bell, Eye, Palette, Save, Moon, Sun, Laptop, Camera } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
@@ -10,50 +10,111 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Separator } from './ui/separator';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import api from '../utils/api';
+import ChangePassword from './ChangePassword';
 
-// Mock user data – replace with real from context/auth
-const mockUser = {
-  name: 'Arjun Sharma',
-  email: 'arjun.sharma@college.edu',
-  phone: '+91 98765 43210',
-  location: 'Mumbai, Maharashtra',
-  notifications: {
+export const SettingsPage = () => {
+  const { user, login } = useAuth();
+  const { theme, setTheme, fontSize, setFontSize } = useTheme();
+  const [loading, setLoading] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  
+  // Profile form state
+  const [profileForm, setProfileForm] = useState({
+    full_name: '',
+    phone: '',
+    location: '',
+    bio: '',
+    github: '',
+    linkedin: '',
+    portfolio: '',
+  });
+  
+  // Notification preferences
+  const [notifications, setNotifications] = useState({
     email: true,
     push: true,
     applications: true,
     messages: true,
     marketing: false,
-  },
-  privacy: {
+  });
+  
+  // Privacy settings
+  const [privacy, setPrivacy] = useState({
     profileVisibility: 'recruiters',
     showEmail: true,
     showPhone: false,
-  },
-};
-
-export const SettingsPage = () => {
-  const { theme, setTheme, fontSize, setFontSize } = useTheme();
-  const [account, setAccount] = useState({
-    name: mockUser.name,
-    email: mockUser.email,
-    phone: mockUser.phone,
-    location: mockUser.location,
   });
-  const [notifications, setNotifications] = useState(mockUser.notifications);
-  const [privacy, setPrivacy] = useState(mockUser.privacy);
-  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
-    setIsSaving(true);
-    setTimeout(() => {
-      toast.success('Settings saved successfully!');
-      setIsSaving(false);
-    }, 1000);
+  // Fetch current user data
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await api.get('/auth/me');
+        const userData = response.data;
+        setProfileForm({
+          full_name: userData.full_name || '',
+          phone: userData.phone || '',
+          location: userData.location || '',
+          bio: userData.bio || '',
+          github: userData.github || '',
+          linkedin: userData.linkedin || '',
+          portfolio: userData.portfolio || '',
+        });
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+        toast.error('Failed to load profile data');
+      }
+    };
+    fetchUserData();
+  }, []);
+
+  // Save profile changes
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    try {
+      const response = await api.put('/auth/profile', profileForm);
+      toast.success('Profile updated successfully');
+      // Refresh user data
+      const userResponse = await api.get('/auth/me');
+      // Update auth context if needed
+    } catch (error) {
+      console.error('Failed to save profile:', error);
+      toast.error(error.response?.data?.detail || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleImageUpload = () => {
-    toast.info('Profile picture upload coming soon');
+  // Save notification preferences
+  const handleSaveNotifications = async () => {
+    setLoading(true);
+    try {
+      // Save to backend (you may need to create this endpoint)
+      await api.put('/auth/preferences', { notifications });
+      toast.success('Notification preferences saved');
+    } catch (error) {
+      console.error('Failed to save notifications:', error);
+      toast.error('Failed to save preferences');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save privacy settings
+  const handleSavePrivacy = async () => {
+    setLoading(true);
+    try {
+      await api.put('/auth/privacy', privacy);
+      toast.success('Privacy settings saved');
+    } catch (error) {
+      console.error('Failed to save privacy:', error);
+      toast.error('Failed to save privacy settings');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -71,87 +132,102 @@ export const SettingsPage = () => {
 
         <Tabs defaultValue="account" className="space-y-6">
           <TabsList className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 rounded-xl p-1 h-auto flex-wrap gap-1">
-            <TabsTrigger value="account" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white dark:data-[state=active]:bg-gray-700">
+            <TabsTrigger value="account" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white">
               <User className="w-4 h-4 mr-2" /> Account
             </TabsTrigger>
-            <TabsTrigger value="security" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white dark:data-[state=active]:bg-gray-700">
+            <TabsTrigger value="security" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white">
               <Lock className="w-4 h-4 mr-2" /> Security
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white dark:data-[state=active]:bg-gray-700">
+            <TabsTrigger value="notifications" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white">
               <Bell className="w-4 h-4 mr-2" /> Notifications
             </TabsTrigger>
-            <TabsTrigger value="privacy" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white dark:data-[state=active]:bg-gray-700">
+            <TabsTrigger value="privacy" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white">
               <Eye className="w-4 h-4 mr-2" /> Privacy
             </TabsTrigger>
-            <TabsTrigger value="appearance" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white dark:data-[state=active]:bg-gray-700">
+            <TabsTrigger value="appearance" className="rounded-lg data-[state=active]:bg-gray-800 data-[state=active]:text-white">
               <Palette className="w-4 h-4 mr-2" /> Appearance
             </TabsTrigger>
           </TabsList>
 
           {/* Account Tab */}
           <TabsContent value="account">
-            <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
+            <Card className="border-0 shadow-md dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5 text-gray-500 dark:text-gray-400" /> Profile Information
+                <CardTitle className="flex items-center gap-2 dark:text-gray-100">
+                  <User className="w-5 h-5 text-gray-500" /> Profile Information
                 </CardTitle>
                 <CardDescription className="dark:text-gray-400">Update your personal details</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 bg-gradient-to-br from-gray-600 to-gray-800 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                    {account.name.split(' ').map(n => n[0]).join('')}
-                  </div>
-                  <div>
-                    <Button variant="outline" size="sm" onClick={handleImageUpload}>
-                      <Camera className="w-4 h-4 mr-2" /> Change Photo
-                    </Button>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">JPG, PNG or GIF. Max 2MB.</p>
-                  </div>
-                </div>
-
-                <Separator className="dark:bg-gray-700" />
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Full Name</Label>
                     <Input
-                      value={account.name}
-                      onChange={e => setAccount({ ...account, name: e.target.value })}
-                      className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Address</Label>
-                    <Input
-                      type="email"
-                      value={account.email}
-                      onChange={e => setAccount({ ...account, email: e.target.value })}
+                      value={profileForm.full_name}
+                      onChange={e => setProfileForm({ ...profileForm, full_name: e.target.value })}
                       className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone Number</Label>
                     <Input
-                      value={account.phone}
-                      onChange={e => setAccount({ ...account, phone: e.target.value })}
+                      value={profileForm.phone}
+                      onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })}
+                      placeholder="+63 XXX XXX XXXX"
                       className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Location</Label>
                     <Input
-                      value={account.location}
-                      onChange={e => setAccount({ ...account, location: e.target.value })}
+                      value={profileForm.location}
+                      onChange={e => setProfileForm({ ...profileForm, location: e.target.value })}
+                      placeholder="City, Country"
                       className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">GitHub Username</Label>
+                    <Input
+                      value={profileForm.github}
+                      onChange={e => setProfileForm({ ...profileForm, github: e.target.value })}
+                      placeholder="username"
+                      className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">LinkedIn URL</Label>
+                    <Input
+                      value={profileForm.linkedin}
+                      onChange={e => setProfileForm({ ...profileForm, linkedin: e.target.value })}
+                      placeholder="linkedin.com/in/username"
+                      className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Portfolio Website</Label>
+                    <Input
+                      value={profileForm.portfolio}
+                      onChange={e => setProfileForm({ ...profileForm, portfolio: e.target.value })}
+                      placeholder="yourwebsite.com"
+                      className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Bio</Label>
+                    <textarea
+                      value={profileForm.bio}
+                      onChange={e => setProfileForm({ ...profileForm, bio: e.target.value })}
+                      rows={4}
+                      placeholder="Tell us about yourself..."
+                      className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
                 </div>
-
                 <div className="flex justify-end">
-                  <Button onClick={handleSave} disabled={isSaving}>
+                  <Button onClick={handleSaveProfile} disabled={loading} className="bg-gray-800 hover:bg-gray-700 text-white">
                     <Save className="w-4 h-4 mr-2" />
-                    {isSaving ? 'Saving...' : 'Save Changes'}
+                    {loading ? 'Saving...' : 'Save Changes'}
                   </Button>
                 </div>
               </CardContent>
@@ -160,55 +236,31 @@ export const SettingsPage = () => {
 
           {/* Security Tab */}
           <TabsContent value="security">
-            <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
+            <Card className="border-0 shadow-md dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Lock className="w-5 h-5 text-gray-500 dark:text-gray-400" /> Security Settings
+                <CardTitle className="flex items-center gap-2 dark:text-gray-100">
+                  <Lock className="w-5 h-5 text-gray-500" /> Security Settings
                 </CardTitle>
                 <CardDescription className="dark:text-gray-400">Manage your password and security preferences</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Current Password</Label>
-                  <Input type="password" placeholder="Enter current password" className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">New Password</Label>
-                    <Input type="password" placeholder="Enter new password" className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirm New Password</Label>
-                    <Input type="password" placeholder="Confirm new password" className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                  </div>
-                </div>
-
-                <Separator className="dark:bg-gray-700" />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Two-Factor Authentication</Label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Add an extra layer of security to your account</p>
-                  </div>
-                  <Switch defaultChecked={false} />
-                </div>
-
-                <div className="flex justify-end">
-                  <Button onClick={handleSave} disabled={isSaving}>
-                    <Save className="w-4 h-4 mr-2" />
-                    {isSaving ? 'Saving...' : 'Update Password'}
-                  </Button>
-                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowChangePassword(true)}
+                  className="w-full"
+                >
+                  <Lock className="w-4 h-4 mr-2" /> Change Password
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* Notifications Tab */}
           <TabsContent value="notifications">
-            <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
+            <Card className="border-0 shadow-md dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-gray-500 dark:text-gray-400" /> Notification Preferences
+                <CardTitle className="flex items-center gap-2 dark:text-gray-100">
+                  <Bell className="w-5 h-5 text-gray-500" /> Notification Preferences
                 </CardTitle>
                 <CardDescription className="dark:text-gray-400">Choose what updates you receive</CardDescription>
               </CardHeader>
@@ -266,11 +318,10 @@ export const SettingsPage = () => {
                     />
                   </div>
                 </div>
-
                 <div className="flex justify-end">
-                  <Button onClick={handleSave} disabled={isSaving}>
+                  <Button onClick={handleSaveNotifications} disabled={loading} className="bg-gray-800 hover:bg-gray-700 text-white">
                     <Save className="w-4 h-4 mr-2" />
-                    {isSaving ? 'Saving...' : 'Save Preferences'}
+                    {loading ? 'Saving...' : 'Save Preferences'}
                   </Button>
                 </div>
               </CardContent>
@@ -279,10 +330,10 @@ export const SettingsPage = () => {
 
           {/* Privacy Tab */}
           <TabsContent value="privacy">
-            <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
+            <Card className="border-0 shadow-md dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-gray-500 dark:text-gray-400" /> Privacy Controls
+                <CardTitle className="flex items-center gap-2 dark:text-gray-100">
+                  <Eye className="w-5 h-5 text-gray-500" /> Privacy Controls
                 </CardTitle>
                 <CardDescription className="dark:text-gray-400">Manage who can see your information</CardDescription>
               </CardHeader>
@@ -302,9 +353,7 @@ export const SettingsPage = () => {
                       <SelectItem value="private">Private – Only your connections</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">This controls who can see your profile and applications</p>
                 </div>
-
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -327,22 +376,10 @@ export const SettingsPage = () => {
                     />
                   </div>
                 </div>
-
-                <Separator className="dark:bg-gray-700" />
-
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data Sharing</Label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Allow platform to use your data for analytics and recommendations</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Share anonymized data</span>
-                    <Switch defaultChecked />
-                  </div>
-                </div>
-
                 <div className="flex justify-end">
-                  <Button onClick={handleSave} disabled={isSaving}>
+                  <Button onClick={handleSavePrivacy} disabled={loading} className="bg-gray-800 hover:bg-gray-700 text-white">
                     <Save className="w-4 h-4 mr-2" />
-                    {isSaving ? 'Saving...' : 'Save Privacy Settings'}
+                    {loading ? 'Saving...' : 'Save Privacy Settings'}
                   </Button>
                 </div>
               </CardContent>
@@ -351,10 +388,10 @@ export const SettingsPage = () => {
 
           {/* Appearance Tab */}
           <TabsContent value="appearance">
-            <Card className="border-0 shadow-md dark:bg-gray-800 dark:border-gray-700">
+            <Card className="border-0 shadow-md dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="w-5 h-5 text-gray-500 dark:text-gray-400" /> Appearance
+                <CardTitle className="flex items-center gap-2 dark:text-gray-100">
+                  <Palette className="w-5 h-5 text-gray-500" /> Appearance
                 </CardTitle>
                 <CardDescription className="dark:text-gray-400">Customize how CCSconnect looks</CardDescription>
               </CardHeader>
@@ -366,8 +403,8 @@ export const SettingsPage = () => {
                       onClick={() => setTheme('light')}
                       className={`p-3 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
                         theme === 'light'
-                          ? 'border-gray-800 dark:border-gray-300 bg-gray-50 dark:bg-gray-700'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                          ? 'border-gray-800 bg-gray-50 dark:bg-gray-700'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
                       }`}
                     >
                       <Sun className="w-5 h-5" />
@@ -377,8 +414,8 @@ export const SettingsPage = () => {
                       onClick={() => setTheme('dark')}
                       className={`p-3 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
                         theme === 'dark'
-                          ? 'border-gray-800 dark:border-gray-300 bg-gray-50 dark:bg-gray-700'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                          ? 'border-gray-800 bg-gray-50 dark:bg-gray-700'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
                       }`}
                     >
                       <Moon className="w-5 h-5" />
@@ -388,8 +425,8 @@ export const SettingsPage = () => {
                       onClick={() => setTheme('system')}
                       className={`p-3 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
                         theme === 'system'
-                          ? 'border-gray-800 dark:border-gray-300 bg-gray-50 dark:bg-gray-700'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                          ? 'border-gray-800 bg-gray-50 dark:bg-gray-700'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
                       }`}
                     >
                       <Laptop className="w-5 h-5" />
@@ -397,7 +434,6 @@ export const SettingsPage = () => {
                     </button>
                   </div>
                 </div>
-
                 <div>
                   <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Font Size</Label>
                   <Select value={fontSize} onValueChange={setFontSize}>
@@ -411,18 +447,20 @@ export const SettingsPage = () => {
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div className="flex justify-end">
-                  <Button onClick={handleSave} disabled={isSaving}>
-                    <Save className="w-4 h-4 mr-2" />
-                    {isSaving ? 'Saving...' : 'Save Appearance'}
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="max-w-md w-full">
+            <ChangePassword onClose={() => setShowChangePassword(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
