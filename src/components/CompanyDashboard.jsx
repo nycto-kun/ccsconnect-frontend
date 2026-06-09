@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+import { useSharedData } from '../contexts/SharedDataContext';
 import api from '../utils/api';
 
 const statusColor = {
@@ -39,12 +40,14 @@ const applicationStatusColor = {
 
 export const CompanyDashboard = () => {
   const { user } = useAuth();
+  const { notices: sharedNotices } = useSharedData();
   
   // State for real data
   const [jobPosts, setJobPosts] = useState([]);
   const [applications, setApplications] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [interns, setInterns] = useState([]);
+  const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
@@ -99,7 +102,7 @@ export const CompanyDashboard = () => {
       const jobsRes = await api.get(`/jobs/?company_id=${companyId || user.id}`);
       setJobPosts(jobsRes.data || []);
       
-      // Fetch applications for company
+      // Fetch applications
       const appsRes = await api.get(`/applications/?company_id=${companyId || user.id}`);
       setApplications(appsRes.data || []);
       
@@ -107,9 +110,13 @@ export const CompanyDashboard = () => {
       const attRes = await api.get(`/attendance/?company_id=${companyId || user.id}`);
       setAttendance(attRes.data || []);
       
-      // Fetch assigned interns (from assignments)
+      // Fetch assigned interns
       const assignmentsRes = await api.get(`/assignments/?company_id=${companyId || user.id}`);
       setInterns(assignmentsRes.data || []);
+      
+      // Fetch notices
+      const noticesRes = await api.get('/notices/');
+      setNotices(noticesRes.data || []);
       
     } catch (error) {
       console.error('Failed to fetch company data:', error);
@@ -143,7 +150,7 @@ export const CompanyDashboard = () => {
         status: 'active'
       };
       
-      const response = await api.post('/jobs/', jobData);
+      await api.post('/jobs/', jobData);
       toast.success('Job posted successfully');
       setIsJobDialogOpen(false);
       setNewJob({
@@ -156,7 +163,7 @@ export const CompanyDashboard = () => {
         requirements: '',
         expires_at: ''
       });
-      fetchCompanyData(); // Refresh
+      fetchCompanyData();
     } catch (error) {
       console.error('Failed to create job:', error);
       toast.error(error.response?.data?.detail || 'Failed to post job');
@@ -170,7 +177,7 @@ export const CompanyDashboard = () => {
     }
     
     try {
-      await api.delete(`/jobs/${jobId}/`);
+      await api.delete(`/jobs/${jobId}`);
       toast.success('Job deleted successfully');
       fetchCompanyData();
     } catch (error) {
@@ -208,7 +215,7 @@ export const CompanyDashboard = () => {
     }
     
     try {
-      await api.post('/attendance', {
+      await api.post('/attendance/', {
         student_id: attendanceForm.student_id,
         date_str: attendanceForm.date,
         hours_worked: parseFloat(attendanceForm.hours_worked),
@@ -237,6 +244,9 @@ export const CompanyDashboard = () => {
   const pendingApplications = applications.filter(a => a.status === 'pending').length;
   const totalAttendance = attendance.length;
   const activeInterns = interns.filter(i => i.status === 'active').length;
+
+  // Combine notices from API and shared context
+  const allNotices = notices.length > 0 ? notices : sharedNotices || [];
 
   if (loading) {
     return (
@@ -352,8 +362,41 @@ export const CompanyDashboard = () => {
         </Card>
       </div>
 
+      {/* Notices Section */}
+      {allNotices.length > 0 && (
+        <Card className="border-0 shadow-md mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="w-5 h-5 text-gray-600" />
+              Announcements
+            </CardTitle>
+            <CardDescription>Latest updates and announcements</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {allNotices.slice(0, 4).map(notice => (
+                <div key={notice.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border-l-4 border-l-gray-500">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-semibold text-gray-800 dark:text-gray-200">{notice.title}</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{notice.content}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                        {new Date(notice.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {notice.type && (
+                      <Badge variant="outline" className="capitalize">{notice.type}</Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="jobs" className="space-y-6">
-        <TabsList className="bg-gray-100 rounded-xl p-1 h-auto flex-wrap gap-1">
+        <TabsList className="bg-gray-100 dark:bg-gray-800 rounded-xl p-1 h-auto flex-wrap gap-1">
           <TabsTrigger value="jobs" className="rounded-lg">
             <Briefcase className="w-4 h-4 mr-2" /> Job Posts
           </TabsTrigger>
@@ -420,7 +463,7 @@ export const CompanyDashboard = () => {
                           <Input 
                             value={newJob.salary_range} 
                             onChange={e => setNewJob({ ...newJob, salary_range: e.target.value })} 
-                            placeholder="e.g., ₹50,000 - ₹80,000/month"
+                            placeholder="e.g., ₱50,000 - ₱80,000/month"
                           />
                         </div>
                       </div>
@@ -483,7 +526,7 @@ export const CompanyDashboard = () => {
               ) : (
                 <div className="space-y-4">
                   {jobPosts.map(job => (
-                    <div key={job.id} className="p-4 bg-gray-50 rounded-xl border">
+                    <div key={job.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -504,26 +547,14 @@ export const CompanyDashboard = () => {
                             <span>📄 {job.applicants_count || 0} applications</span>
                           </div>
                         </div>
-                        <div className="flex gap-1">
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            onClick={() => {
-                              setEditingJob(job);
-                              // Populate edit form
-                            }}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            onClick={() => handleDeleteJob(job.id, job.title)} 
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => handleDeleteJob(job.id, job.title)} 
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -551,7 +582,7 @@ export const CompanyDashboard = () => {
                   {applications.map(app => (
                     <div 
                       key={app.id} 
-                      className="p-4 bg-gray-50 rounded-xl border cursor-pointer hover:shadow-md transition"
+                      className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border cursor-pointer hover:shadow-md transition"
                       onClick={() => {
                         setSelectedApplication(app);
                         setIsApplicationDialogOpen(true);
@@ -706,7 +737,7 @@ export const CompanyDashboard = () => {
                   </div>
                 ) : (
                   attendance.slice(0, 20).map(log => (
-                    <div key={log.id} className="p-3 bg-gray-50 rounded-lg">
+                    <div key={log.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="text-sm font-medium">{log.student_name || 'Student'}</p>
@@ -752,7 +783,7 @@ export const CompanyDashboard = () => {
                     const attendanceRate = internAttendance.length ? Math.round((presentDays / internAttendance.length) * 100) : 0;
                     
                     return (
-                      <div key={intern.student_id} className="p-4 bg-gray-50 rounded-xl">
+                      <div key={intern.student_id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                         <div className="flex justify-between items-center">
                           <div>
                             <h4 className="font-semibold">{intern.student_name || 'Student'}</h4>
