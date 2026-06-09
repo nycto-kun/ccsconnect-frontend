@@ -1,17 +1,17 @@
-// src/utils/api.js
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_URL,
   headers: { 
     'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true'  // ← ADD THIS LINE
+    'ngrok-skip-browser-warning': 'true'  // Skip ngrok warning page
   },
+  withCredentials: false,  // Important for CORS
 });
 
-// Add token to requests if available
+// Add token to requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
   if (token) {
@@ -19,5 +19,19 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error.response?.status, error.response?.data);
+    if (error.response?.status === 401) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_role');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;
