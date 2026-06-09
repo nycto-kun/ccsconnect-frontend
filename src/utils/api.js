@@ -6,21 +6,21 @@ const api = axios.create({
   baseURL: API_URL,
   headers: { 
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
   },
   withCredentials: false,
 });
 
-// Add token and ngrok header to every request
+// Add token to requests only - NO trailing slash modification
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  // THIS IS CRITICAL FOR NGROK - MUST BE SENT WITH EVERY REQUEST
-  config.headers['ngrok-skip-browser-warning'] = 'true';
   return config;
 });
 
+// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -33,19 +33,5 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-// In src/utils/api.js, add this interceptor
-api.interceptors.request.use((config) => {
-  // Add trailing slash to URLs that don't have one and don't have query params
-  if (config.url && !config.url.includes('?') && !config.url.endsWith('/')) {
-    config.url = config.url + '/';
-  }
-  // Handle URLs with query params
-  if (config.url && config.url.includes('?') && !config.url.split('?')[0].endsWith('/')) {
-    const [path, query] = config.url.split('?');
-    config.url = path + '/?' + query;
-  }
-  return config;
-});
 
 export default api;
