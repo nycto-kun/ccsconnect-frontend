@@ -96,7 +96,7 @@ export const CompanyDashboard = () => {
       }
       
       // Fetch jobs
-      const jobsRes = await api.get(`/jobs/?company_id=${companyId || user.id}`);
+      const jobsRes = await api.get(`/jobs?company_id=${companyId || user.id}`);
       setJobPosts(jobsRes.data || []);
       
       // Fetch applications for company
