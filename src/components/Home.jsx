@@ -6,17 +6,43 @@ import { AnalyticsSnapshot } from './AnalyticsSnapshot';
 import { NoticeBoard } from './NoticeBoard';
 import { useAuth } from '../contexts/AuthContext';
 
-export const Home = () => {
+export const Home = ({ onNavigate }) => {
   const { user } = useAuth();
+  const userRole = user?.role || 'student';
+
   return (
     <>
-      <Hero user={user} />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto px-6 py-20">
-        <div className="lg:col-span-2"><QuickAccess /></div>
-        <div className="lg:col-span-1"><NoticeBoard isHomePage={true} /></div>
-      </div>
-      <OpportunityCarousel />
-      <AnalyticsSnapshot />
+      <Hero onNavigate={onNavigate} />
+      
+      {userRole === 'student' && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto px-6 py-12">
+            <div className="lg:col-span-2">
+              <QuickAccess onNavigate={onNavigate} />
+            </div>
+            <div className="lg:col-span-1">
+              <NoticeBoard isHomePage={true} />
+            </div>
+          </div>
+          <OpportunityCarousel />
+          <AnalyticsSnapshot />
+        </>
+      )}
+      
+      {userRole === 'company' && (
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <QuickAccess onNavigate={onNavigate} />
+        </div>
+      )}
+      
+      {userRole === 'admin' && (
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <QuickAccess onNavigate={onNavigate} />
+          <div className="mt-8">
+            <NoticeBoard isHomePage={false} />
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -88,44 +88,43 @@ export const StudentDashboard = () => {
     fetchData();
   }, [user]);
 
-  const handleSubmitReport = async (e) => {
-    e.preventDefault();
+const handleSubmitReport = async (e) => {
+  e.preventDefault();
+  if (!newReport.title || !newReport.description || !newReport.hours) {
+    toast.error('Please fill in all required fields');
+    return;
+  }
+  
+  try {
+    // Make sure parameter names match backend exactly
+    await api.post('/reports/', {
+      date_str: newReport.date,     // Note: date_str, not date
+      title: newReport.title,
+      description: newReport.description,
+      hours: parseFloat(newReport.hours),
+      tasks: newReport.tasks,
+    });
     
-    if (!newReport.title || !newReport.description || !newReport.hours) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
+    toast.success('Report submitted successfully');
     
-    try {
-      await api.post('/reports/', {
-        date_str: newReport.date,
-        title: newReport.title,
-        description: newReport.description,
-        hours: parseFloat(newReport.hours),
-        tasks: newReport.tasks,
-      });
-      
-      toast.success('Report submitted successfully');
-      
-      // Refresh reports
-      const repRes = await api.get(`/reports?student_id=${user.id}`);
-      setReports(repRes.data || []);
-      
-      setShowReportForm(false);
-      setNewReport({ 
-        date: new Date().toISOString().split('T')[0], 
-        title: '', 
-        description: '', 
-        hours: '', 
-        tasks: '' 
-      });
-      
-    } catch (error) {
-      console.error('Failed to submit report:', error);
-      toast.error(error.response?.data?.detail || 'Failed to submit report');
-    }
-  };
-
+    // Refresh reports
+    const repRes = await api.get(`/reports/?student_id=${user.id}`);
+    setReports(repRes.data || []);
+    
+    setShowReportForm(false);
+    setNewReport({ 
+      date: new Date().toISOString().split('T')[0], 
+      title: '', 
+      description: '', 
+      hours: '', 
+      tasks: '' 
+    });
+    
+  } catch (error) {
+    console.error('Failed to submit report:', error);
+    toast.error(error.response?.data?.detail || 'Failed to submit report');
+  }
+};
   const recentApplications = applications.slice(0, 3);
   const recentReports = reports.slice(0, 5);
 

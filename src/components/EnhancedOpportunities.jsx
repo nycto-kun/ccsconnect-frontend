@@ -96,7 +96,7 @@ export const EnhancedOpportunities = () => {
   const fetchBookmarks = async () => {
     if (user?.role === 'student') {
       try {
-        const response = await api.get('/bookmarks');
+        const response = await api.get('/bookmarks/');
         const bookmarkedIds = new Set(response.data.map(b => b.job_id));
         setBookmarks(bookmarkedIds);
       } catch (error) {
