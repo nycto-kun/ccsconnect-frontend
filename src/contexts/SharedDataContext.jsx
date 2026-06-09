@@ -50,7 +50,7 @@ export const SharedDataProvider = ({ children }) => {
       setJobs(jobsRes.data || []);
       
       // Fetch notices
-      const noticesRes = await api.get('/notices');
+      const noticesRes = await api.get('/notices/');
       setNotices(noticesRes.data || []);
       
       // Update stats
@@ -78,7 +78,7 @@ export const SharedDataProvider = ({ children }) => {
       const statsRes = await api.get('/admin/stats');
       setStats(statsRes.data);
       
-      const noticesRes = await api.get('/notices');
+      const noticesRes = await api.get('/notices/');
       setNotices(noticesRes.data || []);
       
       const jobsRes = await api.get('/jobs');
@@ -107,7 +107,7 @@ export const SharedDataProvider = ({ children }) => {
       const attRes = await api.get(`/attendance/?company_id=${user.id}`);
       setAttendance(attRes.data || []);
       
-      const noticesRes = await api.get('/notices');
+      const noticesRes = await api.get('/notices/');
       setNotices(noticesRes.data || []);
       
     } catch (error) {

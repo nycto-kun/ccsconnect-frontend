@@ -17,7 +17,7 @@ export const NoticeBoard = ({ isHomePage = false }) => {
     const fetchNotices = async () => {
       setIsLoading(true);
       try {
-        const response = await api.get('/notices');
+        const response = await api.get('/notices/');
         const sorted = (response.data || []).sort((a, b) => {
           if (a.pinned && !b.pinned) return -1;
           if (!a.pinned && b.pinned) return 1;
@@ -82,7 +82,7 @@ export const NoticeBoard = ({ isHomePage = false }) => {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => window.location.href = '/notices'}
+                  onClick={() => window.location.href = '/notices/'}
                   className="text-gray-700 dark:text-gray-300"
                 >
                   View All <ExternalLink className="w-4 h-4 ml-1" />

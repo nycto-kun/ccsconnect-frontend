@@ -67,7 +67,7 @@ export const AdminDashboard = () => {
       setPendingCompanies(Array.isArray(compRes.data) ? compRes.data : []);
       
       // Fetch notices
-      const noticesRes = await api.get('/notices');
+      const noticesRes = await api.get('/notices/');
       setNotices(Array.isArray(noticesRes.data) ? noticesRes.data : []);
       
       // Fetch all students
@@ -111,7 +111,7 @@ export const AdminDashboard = () => {
       return;
     }
     try {
-      await api.post('/notices', noticeForm);
+      await api.post('/notices/', noticeForm);
       toast.success('Notice created');
       fetchAdminData();
       setIsNoticeDialogOpen(false);
