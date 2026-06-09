@@ -20,7 +20,7 @@ export const NotificationDropdown = () => {
       try {
         // Fetch recent applications for student
         if (user.role === 'student') {
-          const appsRes = await api.get(`/applications?student_id=${user.id}`);
+          const appsRes = await api.get(`/applications/?student_id=${user.id}`);
           const apps = appsRes.data || [];
           
           const newNotifications = apps.slice(0, 10).map(app => ({

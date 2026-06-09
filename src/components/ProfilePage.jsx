@@ -87,7 +87,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
         
         // Fetch stats if student
         if (userRole === 'student') {
-          const appsRes = await api.get(`/applications?student_id=${user.id}`);
+          const appsRes = await api.get(`/applications/?student_id=${user.id}`);
           const apps = appsRes.data || [];
           setStats({
             applications: apps.length,

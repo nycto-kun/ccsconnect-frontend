@@ -33,16 +33,16 @@ export const SharedDataProvider = ({ children }) => {
       setLoading(true);
       
       // Fetch applications
-      const appsRes = await api.get(`/applications?student_id=${user.id}`);
+      const appsRes = await api.get(`/applications/?student_id=${user.id}`);
       const apps = appsRes.data || [];
       setApplications(apps);
       
       // Fetch attendance
-      const attRes = await api.get(`/attendance?student_id=${user.id}`);
+      const attRes = await api.get(`/attendance/?student_id=${user.id}`);
       setAttendance(attRes.data || []);
       
       // Fetch reports
-      const repRes = await api.get(`/reports?student_id=${user.id}`);
+      const repRes = await api.get(`/reports/?student_id=${user.id}`);
       setReports(repRes.data || []);
       
       // Fetch jobs for opportunities
@@ -101,10 +101,10 @@ export const SharedDataProvider = ({ children }) => {
       const jobsRes = await api.get(`/jobs/?company_id=${user.id}`);
       setJobs(jobsRes.data || []);
       
-      const appsRes = await api.get(`/applications?company_id=${user.id}`);
+      const appsRes = await api.get(`/applications/?company_id=${user.id}`);
       setApplications(appsRes.data || []);
       
-      const attRes = await api.get(`/attendance?company_id=${user.id}`);
+      const attRes = await api.get(`/attendance/?company_id=${user.id}`);
       setAttendance(attRes.data || []);
       
       const noticesRes = await api.get('/notices');

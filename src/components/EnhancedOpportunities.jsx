@@ -108,7 +108,7 @@ export const EnhancedOpportunities = () => {
   const fetchAppliedJobs = async () => {
     if (user?.role === 'student') {
       try {
-        const response = await api.get(`/applications?student_id=${user.id}`);
+        const response = await api.get(`/applications/?student_id=${user.id}`);
         const appliedIds = new Set(response.data.map(a => a.job_id));
         setAppliedJobs(appliedIds);
       } catch (error) {

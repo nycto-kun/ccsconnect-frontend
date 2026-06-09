@@ -51,17 +51,17 @@ export const StudentDashboard = () => {
         setLoading(true);
         
         // Fetch applications
-        const appsRes = await api.get(`/applications?student_id=${user.id}`);
+        const appsRes = await api.get(`/applications/?student_id=${user.id}`);
         const apps = appsRes.data || [];
         setApplications(apps);
         
         // Fetch attendance
-        const attRes = await api.get(`/attendance?student_id=${user.id}`);
+        const attRes = await api.get(`/attendance/?student_id=${user.id}`);
         const attData = attRes.data || [];
         setAttendance(attData);
         
         // Fetch reports
-        const repRes = await api.get(`/reports?student_id=${user.id}`);
+        const repRes = await api.get(`/reports/?student_id=${user.id}`);
         setReports(repRes.data || []);
         
         // Calculate stats
