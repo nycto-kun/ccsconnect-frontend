@@ -96,9 +96,9 @@ const handleSubmitReport = async (e) => {
   }
   
   try {
-    // IMPORTANT: The parameter name MUST be 'date_str', not 'date'
+    // IMPORTANT: The parameter names must match the backend exactly
     await api.post('/reports/', {
-      date_str: newReport.date,     // Note: date_str (matches backend)
+      date_str: newReport.date,     // <-- MUST be 'date_str', not 'date'
       title: newReport.title,
       description: newReport.description,
       hours: parseFloat(newReport.hours),
