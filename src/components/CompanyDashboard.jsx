@@ -174,13 +174,16 @@ export const CompanyDashboard = () => {
     }
   };
 
-  const handleVerifyReport = async (reportId, status) => {
+const handleVerifyReport = async (reportId, status) => {
   try {
-    await api.patch(`/reports/${reportId}/verify`, null, { params: { status } });
+    await api.patch(`/reports/${reportId}/verify`, null, { 
+      params: { status: status } 
+    });
     toast.success(`Report ${status}`);
-    fetchCompanyData(); // Refresh
+    fetchCompanyData();
   } catch (error) {
-    toast.error('Failed to update report status');
+    console.error('Failed to update report status:', error);
+    toast.error(error.response?.data?.detail || 'Failed to update report status');
   }
 };
 
