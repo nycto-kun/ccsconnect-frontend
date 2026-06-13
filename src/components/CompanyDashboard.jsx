@@ -44,6 +44,7 @@ export const CompanyDashboard = () => {
   
   // State for real data
   const [jobPosts, setJobPosts] = useState([]);
+  const [reports, setReports] = useState([]);
   const [applications, setApplications] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [interns, setInterns] = useState([]);
@@ -102,6 +103,9 @@ export const CompanyDashboard = () => {
       const jobsRes = await api.get(`/jobs/?company_id=${companyId || user.id}`);
       setJobPosts(jobsRes.data || []);
       
+      // Fetch reports
+      const reportsRes = await api.get(`/reports/?company_id=${companyId || ''}`);
+      setReports(reportsRes.data || []);
       // Fetch applications
       const appsRes = await api.get(`/applications/?company_id=${companyId || user.id}`);
       setApplications(appsRes.data || []);
@@ -170,6 +174,16 @@ export const CompanyDashboard = () => {
     }
   };
 
+  const handleVerifyReport = async (reportId, status) => {
+  try {
+    await api.patch(`/reports/${reportId}/verify`, null, { params: { status } });
+    toast.success(`Report ${status}`);
+    fetchCompanyData(); // Refresh
+  } catch (error) {
+    toast.error('Failed to update report status');
+  }
+};
+
   // Delete job
   const handleDeleteJob = async (jobId, jobTitle) => {
     if (!confirm(`Are you sure you want to delete "${jobTitle}"? This action cannot be undone.`)) {
@@ -203,25 +217,27 @@ export const CompanyDashboard = () => {
   };
 
   // Log attendance
-  const handleLogAttendance = async () => {
-    if (!attendanceForm.student_id || !attendanceForm.date) {
-      toast.error('Please select a student and date');
-      return;
-    }
+const handleLogAttendance = async () => {
+  if (!attendanceForm.student_id || !attendanceForm.date) {
+    toast.error('Please select a student and date');
+    return;
+  }
+  
+  if (attendanceForm.status !== 'absent' && !attendanceForm.task.trim()) {
+    toast.error('Please enter the task/work done');
+    return;
+  }
+  
+  try {
+    const response = await api.post('/attendance/', {
+      student_id: attendanceForm.student_id,
+      date_str: attendanceForm.date,
+      hours_worked: parseFloat(attendanceForm.hours_worked),
+      status: attendanceForm.status,
+      task: attendanceForm.task,
+    });
     
-    if (attendanceForm.status !== 'absent' && !attendanceForm.task.trim()) {
-      toast.error('Please enter the task/work done');
-      return;
-    }
-    
-    try {
-      await api.post('/attendance/', {
-        student_id: attendanceForm.student_id,
-        date_str: attendanceForm.date,
-        hours_worked: parseFloat(attendanceForm.hours_worked),
-        status: attendanceForm.status,
-        task: attendanceForm.task,
-      });
+    if (response.data) {
       toast.success('Attendance logged successfully');
       setIsAttendanceDialogOpen(false);
       setAttendanceForm({
@@ -231,12 +247,13 @@ export const CompanyDashboard = () => {
         status: 'present',
         task: ''
       });
-      fetchCompanyData();
-    } catch (error) {
-      console.error('Failed to log attendance:', error);
-      toast.error(error.response?.data?.detail || 'Failed to log attendance');
+      fetchCompanyData(); // Refresh data
     }
-  };
+  } catch (error) {
+    console.error('Failed to log attendance:', error);
+    toast.error(error.response?.data?.detail || 'Failed to log attendance');
+  }
+};
 
   // Get stats
   const activeJobs = jobPosts.filter(j => j.status === 'active').length;
@@ -400,6 +417,9 @@ export const CompanyDashboard = () => {
           <TabsTrigger value="jobs" className="rounded-lg">
             <Briefcase className="w-4 h-4 mr-2" /> Job Posts
           </TabsTrigger>
+          <TabsTrigger value="reports" className="rounded-lg">
+            <FileText className="w-4 h-4 mr-2" /> Student Reports
+          </TabsTrigger>
           <TabsTrigger value="applications" className="rounded-lg">
             <FileText className="w-4 h-4 mr-2" /> Applications
           </TabsTrigger>
@@ -410,6 +430,70 @@ export const CompanyDashboard = () => {
             <Users className="w-4 h-4 mr-2" /> Interns
           </TabsTrigger>
         </TabsList>
+
+<TabsContent value="reports">
+  <Card className="border-0 shadow-md">
+    <CardHeader>
+      <CardTitle>Student Daily Reports</CardTitle>
+      <CardDescription>Review and verify reports submitted by your interns</CardDescription>
+    </CardHeader>
+    <CardContent>
+      {reports.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p>No reports submitted yet</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {reports.map(report => (
+            <div key={report.id} className="p-4 bg-gray-50 rounded-xl border">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="font-semibold">{report.title}</h4>
+                    <Badge className={
+                      report.status === 'approved' ? 'bg-green-100 text-green-700' :
+                      report.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                      'bg-yellow-100 text-yellow-700'
+                    }>
+                      {report.status || 'pending'}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-gray-600">{report.description}</p>
+                  <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
+                    <span>Student: {report.student_name || 'Student'}</span>
+                    <span>Date: {report.date}</span>
+                    <span>Hours: {report.hours}h</span>
+                    {report.tasks && <span>Tasks: {report.tasks}</span>}
+                  </div>
+                </div>
+                {report.status === 'pending' && (
+                  <div className="flex gap-2 ml-4">
+                    <Button 
+                      size="sm" 
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => handleVerifyReport(report.id, 'approved')}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1" /> Approve
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-red-500 text-red-600 hover:bg-red-50"
+                      onClick={() => handleVerifyReport(report.id, 'rejected')}
+                    >
+                      <X className="w-4 h-4 mr-1" /> Reject
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </CardContent>
+  </Card>
+</TabsContent>
 
         {/* JOBS TAB */}
         <TabsContent value="jobs">

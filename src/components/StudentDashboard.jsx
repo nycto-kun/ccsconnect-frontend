@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Users, Calendar, FileText, Award, Clock, BookOpen, Send, Edit3, Briefcase, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { 
+  Users, Calendar, FileText, Award, Clock, BookOpen, Send, Edit3, 
+  Briefcase, CheckCircle, XCircle, AlertCircle, Eye, ThumbsUp, ThumbsDown
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -10,6 +13,7 @@ import { Textarea } from './ui/textarea';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 import { toast } from 'sonner';
+import { RefreshCw } from 'lucide-react';
 
 const getStatusColor = (status) => {
   switch (status?.toLowerCase()) {
@@ -17,6 +21,7 @@ const getStatusColor = (status) => {
     case 'interview': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
     case 'pending': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
     case 'rejected': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+    case 'approved': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
     default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
   }
 };
@@ -28,6 +33,7 @@ export const StudentDashboard = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showReportForm, setShowReportForm] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [newReport, setNewReport] = useState({ 
     date: new Date().toISOString().split('T')[0], 
     title: '', 
@@ -40,92 +46,94 @@ export const StudentDashboard = () => {
     interviewsScheduled: 0,
     offersReceived: 0,
     totalHours: 0,
-    attendanceRate: 0
+    attendanceRate: 0,
+    approvedReports: 0,
+    pendingReports: 0
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-      
-      try {
-        setLoading(true);
-        
-        // Fetch applications
-        const appsRes = await api.get(`/applications/?student_id=${user.id}`);
-        const apps = appsRes.data || [];
-        setApplications(apps);
-        
-        // Fetch attendance
-        const attRes = await api.get(`/attendance/?student_id=${user.id}`);
-        const attData = attRes.data || [];
-        setAttendance(attData);
-        
-        // Fetch reports
-        const repRes = await api.get(`/reports/?student_id=${user.id}`);
-        setReports(repRes.data || []);
-        
-        // Calculate stats
-        const totalHours = attData.reduce((sum, a) => sum + (a.hours_worked || 0), 0);
-        const presentDays = attData.filter(a => a.status === 'present' || a.status === 'half-day').length;
-        const attendanceRate = attData.length ? Math.round((presentDays / attData.length) * 100) : 0;
-        
-        setStats({
-          applicationsSent: apps.length,
-          interviewsScheduled: apps.filter(a => a.status === 'interview').length,
-          offersReceived: apps.filter(a => a.status === 'accepted').length,
-          totalHours,
-          attendanceRate
-        });
-        
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-        toast.error('Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchData = async () => {
+    if (!user) return;
     
+    try {
+      setRefreshing(true);
+      
+      // Fetch applications
+      const appsRes = await api.get(`/applications/?student_id=${user.id}`);
+      const apps = appsRes.data || [];
+      setApplications(apps);
+      
+      // Fetch attendance
+      const attRes = await api.get(`/attendance/?student_id=${user.id}`);
+      const attData = attRes.data || [];
+      setAttendance(attData);
+      
+      // Fetch reports
+      const repRes = await api.get(`/reports/?student_id=${user.id}`);
+      const reportsData = repRes.data || [];
+      setReports(reportsData);
+      
+      // Calculate stats
+      const totalHours = attData.reduce((sum, a) => sum + (a.hours_worked || 0), 0);
+      const presentDays = attData.filter(a => a.status === 'present' || a.status === 'half-day').length;
+      const attendanceRate = attData.length ? Math.round((presentDays / attData.length) * 100) : 0;
+      
+      setStats({
+        applicationsSent: apps.length,
+        interviewsScheduled: apps.filter(a => a.status === 'interview').length,
+        offersReceived: apps.filter(a => a.status === 'accepted').length,
+        totalHours,
+        attendanceRate,
+        approvedReports: reportsData.filter(r => r.status === 'approved').length,
+        pendingReports: reportsData.filter(r => r.status === 'pending' || !r.status).length
+      });
+      
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [user]);
 
-const handleSubmitReport = async (e) => {
-  e.preventDefault();
-  if (!newReport.title || !newReport.description || !newReport.hours) {
-    toast.error('Please fill in all required fields');
-    return;
-  }
-  
-  try {
-    // IMPORTANT: The parameter names must match the backend exactly
-    await api.post('/reports/', {
-      date_str: newReport.date,     // <-- MUST be 'date_str', not 'date'
-      title: newReport.title,
-      description: newReport.description,
-      hours: parseFloat(newReport.hours),
-      tasks: newReport.tasks || '',
-    });
+  const handleSubmitReport = async (e) => {
+    e.preventDefault();
+    if (!newReport.title || !newReport.description || !newReport.hours) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
     
-    toast.success('Report submitted successfully');
-    
-    // Refresh reports list
-    const repRes = await api.get(`/reports/?student_id=${user.id}`);
-    setReports(repRes.data || []);
-    
-    setShowReportForm(false);
-    setNewReport({ 
-      date: new Date().toISOString().split('T')[0], 
-      title: '', 
-      description: '', 
-      hours: '', 
-      tasks: '' 
-    });
-    
-  } catch (error) {
-    console.error('Failed to submit report:', error);
-    const errorMsg = error.response?.data?.detail || 'Failed to submit report';
-    toast.error(errorMsg);
-  }
-};
+    try {
+      await api.post('/reports/', {
+        date_str: newReport.date,
+        title: newReport.title,
+        description: newReport.description,
+        hours: parseFloat(newReport.hours),
+        tasks: newReport.tasks || '',
+      });
+      
+      toast.success('Report submitted successfully');
+      await fetchData();
+      
+      setShowReportForm(false);
+      setNewReport({ 
+        date: new Date().toISOString().split('T')[0], 
+        title: '', 
+        description: '', 
+        hours: '', 
+        tasks: '' 
+      });
+      
+    } catch (error) {
+      console.error('Failed to submit report:', error);
+      const errorMsg = error.response?.data?.detail || 'Failed to submit report';
+      toast.error(errorMsg);
+    }
+  };
 
   const recentApplications = applications.slice(0, 3);
   const recentReports = reports.slice(0, 5);
@@ -140,41 +148,60 @@ const handleSubmitReport = async (e) => {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        transition={{ duration: 0.5 }} 
-        className="mb-8"
-      >
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-          Welcome back, {user?.full_name?.split(' ')[0] || 'Student'}! 👋
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 text-lg">
-          Your internship journey is on track. Here's what's happening today.
-        </p>
-      </motion.div>
+      {/* Header with Refresh */}
+      <div className="flex justify-between items-center mb-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          transition={{ duration: 0.5 }}
+        >
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+            Welcome back, {user?.full_name?.split(' ')[0] || 'Student'}! 👋
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 text-lg">
+            Your internship journey is on track. Here's what's happening today.
+          </p>
+        </motion.div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={fetchData} 
+          disabled={refreshing}
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700">
+      <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700 text-center">
           <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">{stats.applicationsSent}</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Applications Sent</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Applications</div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700 text-center">
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.interviewsScheduled}</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Interviews</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Interviews</div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700 text-center">
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.offersReceived}</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Offers</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Offers</div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700 text-center">
           <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.totalHours}</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Hours Completed</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Hours</div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700 text-center">
           <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.attendanceRate}%</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Attendance Rate</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Attendance</div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700 text-center">
+          <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.approvedReports}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Approved Reports</div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-100 dark:border-gray-700 text-center">
+          <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pendingReports}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Pending Reports</div>
         </div>
       </div>
 
@@ -366,7 +393,7 @@ const handleSubmitReport = async (e) => {
               </form>
             )}
             
-            <div className="space-y-3 max-h-80 overflow-y-auto">
+            <div className="space-y-3 max-h-96 overflow-y-auto">
               {recentReports.length === 0 && !showReportForm ? (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -377,13 +404,37 @@ const handleSubmitReport = async (e) => {
                   <div key={report.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                     <div className="flex justify-between items-start mb-1">
                       <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{report.title}</h4>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">{report.date}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{report.date}</span>
+                        <Badge className={
+                          report.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                          report.status === 'rejected' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                          'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                        }>
+                          {report.status === 'approved' ? <ThumbsUp className="w-3 h-3 mr-1" /> :
+                           report.status === 'rejected' ? <ThumbsDown className="w-3 h-3 mr-1" /> :
+                           <Clock className="w-3 h-3 mr-1" />}
+                          {report.status || 'pending'}
+                        </Badge>
+                      </div>
                     </div>
                     <p className="text-xs text-gray-600 dark:text-gray-300 mb-1 line-clamp-2">{report.description}</p>
                     <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                       <span>{report.hours} hours</span>
                       {report.tasks && <span>Tasks: {report.tasks}</span>}
                     </div>
+                    {report.status === 'approved' && (
+                      <div className="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Verified by company
+                      </div>
+                    )}
+                    {report.status === 'rejected' && (
+                      <div className="mt-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                        <XCircle className="w-3 h-3" />
+                        Needs revision
+                      </div>
+                    )}
                   </div>
                 ))
               )}
