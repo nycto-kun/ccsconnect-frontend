@@ -254,7 +254,8 @@ const handleLogAttendance = async () => {
     }
   } catch (error) {
     console.error('Failed to log attendance:', error);
-    toast.error(error.response?.data?.detail || 'Failed to log attendance');
+    const errorMsg = error.response?.data?.detail || error.response?.data?.message || 'Failed to log attendance';
+    toast.error(errorMsg);
   }
 };
 
