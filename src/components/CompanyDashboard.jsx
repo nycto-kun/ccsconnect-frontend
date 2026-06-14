@@ -52,10 +52,31 @@ export const CompanyDashboard = () => {
     error
   } = useSharedData();
 
+  console.log('🔴 CompanyDashboard RENDERING');
+  console.log('🔴 User:', user?.id, user?.role);
   console.log('CompanyDashboard - loading:', loading);
   console.log('CompanyDashboard - interns:', interns);
   console.log('CompanyDashboard - error:', error);
   
+const { 
+    jobs: jobPosts, 
+    applications, 
+    attendance, 
+    reports, 
+    interns, 
+    notices: sharedNotices,
+    loading,
+    refreshData,
+    error
+  } = useSharedData();
+
+    console.log('🔴 SharedDataContext values:', {
+    loading,
+    internsCount: interns?.length,
+    jobsCount: jobPosts?.length,
+    error
+  });
+
   // Local state for UI only (not data fetching)
   const [notices, setNotices] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
