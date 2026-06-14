@@ -95,64 +95,16 @@ export const CompanyDashboard = () => {
   const [isDeletingJob, setIsDeletingJob] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isLoggingAttendance, setIsLoggingAttendance] = useState(false);
-  const [localInterns, setLocalInterns] = useState([]);
-
-  useEffect(() => {
-    // Fallback: if SharedDataContext doesn't fetch, do it directly
-    const timeout = setTimeout(() => {
-      if (loading && interns.length === 0 && jobPosts.length === 0 && localInterns.length === 0) {
-        console.log('Fallback: Direct fetch triggered');
-        const fetchDirect = async () => {
-          try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch('https://ccsconnect.nport.link/assignments/', {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'ngrok-skip-browser-warning': 'true'
-              }
-            });
-            const data = await res.json();
-            console.log('Direct fetch assignments:', data);
-            setLocalInterns(data);
-          } catch (err) {
-            console.error('Direct fetch failed:', err);
-          }
-        };
-        fetchDirect();
-      }
-    }, 3000); // 3 second timeout
-    
-    return () => clearTimeout(timeout);
-  }, [loading, interns, jobPosts, localInterns.length]);
-
-  const displayInterns = interns.length > 0 ? interns : localInterns;
 
   // Combine notices
   const allNotices = sharedNotices.length > 0 ? sharedNotices : notices;
 
-  // Use localInterns if interns from context is empty
-  const displayInterns = interns.length > 0 ? interns : localInterns;
-
   // Handle refresh
-const handleRefresh = async () => {
-  setRefreshing(true);
-  await refreshData();
-  // Also trigger direct fetch
-  try {
-    const token = localStorage.getItem('access_token');
-    const res = await fetch('https://ccsconnect.nport.link/assignments/', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'ngrok-skip-browser-warning': 'true'
-      }
-    });
-    const data = await res.json();
-    setLocalInterns(data);
-  } catch (err) {
-    console.error('Direct refresh fetch failed:', err);
-  }
-  setRefreshing(false);
-};
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshData();
+    setRefreshing(false);
+  };
 
   // Create new job
   const handleCreateJob = async () => {
@@ -306,6 +258,19 @@ const handleRefresh = async () => {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[400px] text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">Failed to Load Dashboard</h3>
+        <p className="text-gray-500 mb-4">{error}</p>
+        <Button onClick={handleRefresh} className="bg-gray-800">
+          <RefreshCw className="w-4 h-4 mr-2" /> Retry
+        </Button>
       </div>
     );
   }
@@ -777,16 +742,16 @@ const handleRefresh = async () => {
                       <SelectValue placeholder="Select intern" />
                     </SelectTrigger>
                     <SelectContent>
-  {displayInterns.length === 0 ? (
-    <SelectItem value="no-interns" disabled>No interns assigned yet</SelectItem>
-  ) : (
-    displayInterns.map(intern => (
-      <SelectItem key={intern.student_id} value={intern.student_id}>
-        {intern.student_name || intern.student_id}
-      </SelectItem>
-    ))
-  )}
-</SelectContent>
+                      {interns.length === 0 ? (
+                        <SelectItem value="no-interns" disabled>No interns assigned yet</SelectItem>
+                      ) : (
+                        interns.map(intern => (
+                          <SelectItem key={intern.student_id} value={intern.student_id}>
+                            {intern.student_name || intern.student_id}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
                   </Select>
                 </div>
                 
@@ -909,7 +874,7 @@ const handleRefresh = async () => {
               <CardDescription>Track your interns' progress and attendance</CardDescription>
             </CardHeader>
             <CardContent>
-              {displayInterns.length === 0 ? (
+              {interns.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p>No interns assigned yet</p>
@@ -917,7 +882,7 @@ const handleRefresh = async () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {displayInterns.map(intern => {
+                  {interns.map(intern => {
                     const internAttendance = attendance.filter(a => a.student_id === intern.student_id);
                     const totalHours = internAttendance.reduce((sum, a) => sum + (a.hours_worked || 0), 0);
                     const presentDays = internAttendance.filter(a => a.status === 'present' || a.status === 'half-day').length;
