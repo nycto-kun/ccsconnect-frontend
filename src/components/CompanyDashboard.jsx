@@ -48,8 +48,13 @@ export const CompanyDashboard = () => {
     interns, 
     notices: sharedNotices,
     loading,
-    refreshData
+    refreshData,
+    error
   } = useSharedData();
+
+  console.log('CompanyDashboard - loading:', loading);
+  console.log('CompanyDashboard - interns:', interns);
+  console.log('CompanyDashboard - error:', error);
   
   // Local state for UI only (not data fetching)
   const [notices, setNotices] = useState([]);
