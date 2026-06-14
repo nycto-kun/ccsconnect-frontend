@@ -978,3 +978,32 @@ export const CompanyDashboard = () => {
     </div>
   );
 };
+
+// Add this useEffect in CompanyDashboard.jsx right after the existing one
+useEffect(() => {
+  // Fallback: if SharedDataContext doesn't fetch, do it directly
+  const timeout = setTimeout(() => {
+    if (loading && interns.length === 0 && jobPosts.length === 0) {
+      console.log('Fallback: Direct fetch triggered');
+      const fetchDirect = async () => {
+        try {
+          const token = localStorage.getItem('access_token');
+          const res = await fetch('https://ccsconnect.nport.link/assignments/', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'ngrok-skip-browser-warning': 'true'
+            }
+          });
+          const data = await res.json();
+          console.log('Direct fetch assignments:', data);
+          setInterns(data);
+        } catch (err) {
+          console.error('Direct fetch failed:', err);
+        }
+      };
+      fetchDirect();
+    }
+  }, 5000);
+  
+  return () => clearTimeout(timeout);
+}, [loading, interns, jobPosts]);
