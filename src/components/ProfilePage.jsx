@@ -114,29 +114,33 @@ export const ProfilePage = ({ userRole: propRole }) => {
     if (user) fetchProfile();
   }, [user, userRole]);
 
-  // Generate AI embedding from skills
-  const generateAIEmbedding = async (skills) => {
-    if (!skills || skills.length === 0) {
-      console.log('No skills to generate embedding');
-      return false;
-    }
+ // In ProfilePage.jsx, update the generateAIEmbedding function
+const generateAIEmbedding = async (skills) => {
+  if (!skills || skills.length === 0) {
+    console.log('No skills to generate embedding');
+    return false;
+  }
+  
+  try {
+    setUpdatingAI(true);
+    console.log('Generating AI embedding for skills:', skills);
     
-    try {
-      setUpdatingAI(true);
-      console.log('Generating AI embedding for skills:', skills);
-      const response = await api.post('/ai/student-embedding', {
-        skills: skills,
-        resume_text: ''
-      });
-      console.log('AI embedding response:', response.data);
-      return true;
-    } catch (error) {
-      console.error('Failed to generate AI embedding:', error);
-      return false;
-    } finally {
-      setUpdatingAI(false);
-    }
-  };
+    // Send as JSON object, not FormData
+    const response = await api.post('/ai/student-embedding', {
+      skills: skills,
+      resume_text: ''
+    });
+    
+    console.log('AI embedding response:', response.data);
+    return true;
+  } catch (error) {
+    console.error('Failed to generate AI embedding:', error);
+    console.error('Error details:', error.response?.data);
+    return false;
+  } finally {
+    setUpdatingAI(false);
+  }
+};
 
   // Trigger resume file input
   const handleResumeButtonClick = () => {

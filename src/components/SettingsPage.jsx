@@ -95,20 +95,23 @@ export const SettingsPage = () => {
     });
   };
 
-  // Update AI embedding when skills change
-  const updateAIEmbedding = async (skills) => {
-    if (!skills || skills.length === 0) return;
-    
-    try {
-      await api.post('/ai/student-embedding', {
-        skills: skills,
-        resume_text: ''
-      });
-      console.log('AI embedding updated with skills:', skills);
-    } catch (error) {
-      console.error('Failed to update AI embedding:', error);
-    }
-  };
+  // embedding update function
+const updateAIEmbedding = async (skills) => {
+  if (!skills || skills.length === 0) return;
+  
+  try {
+    console.log('Generating AI embedding for skills:', skills);
+    const response = await api.post('/ai/student-embedding', {
+      skills: skills,
+      resume_text: ''
+    });
+    console.log('AI embedding response:', response.data);
+    toast.success('AI matching updated!');
+  } catch (error) {
+    console.error('Failed to update AI embedding:', error);
+    toast.error('AI matching update failed');
+  }
+};
 
   // Save profile changes
   const handleSaveProfile = async () => {
