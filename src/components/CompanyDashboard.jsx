@@ -96,14 +96,6 @@ export const CompanyDashboard = () => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isLoggingAttendance, setIsLoggingAttendance] = useState(false);
 
-  // Refresh data when switching to interns tab
-  useEffect(() => {
-    if (activeTab === 'interns') {
-      console.log('🔄 Interns tab selected - fetching fresh data...');
-      refreshData();
-    }
-  }, [activeTab, refreshData]);
-
   // Combine notices
   const allNotices = sharedNotices.length > 0 ? sharedNotices : notices;
 
@@ -437,6 +429,7 @@ export const CompanyDashboard = () => {
         </Card>
       )}
 
+      {/* Tabs with onClick on Interns tab to force refresh */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-gray-100 dark:bg-gray-800 rounded-xl p-1 h-auto flex-wrap gap-1">
           <TabsTrigger value="jobs" className="rounded-lg">
@@ -451,7 +444,17 @@ export const CompanyDashboard = () => {
           <TabsTrigger value="attendance" className="rounded-lg">
             <ClipboardList className="w-4 h-4 mr-2" /> Attendance
           </TabsTrigger>
-          <TabsTrigger value="interns" className="rounded-lg">
+          <TabsTrigger 
+            value="interns" 
+            className="rounded-lg"
+            onClick={(e) => {
+              console.log('🔴 Interns tab clicked - forcing refresh');
+              // Small delay to let the tab switch happen
+              setTimeout(() => {
+                refreshData();
+              }, 100);
+            }}
+          >
             <Users className="w-4 h-4 mr-2" /> Interns
           </TabsTrigger>
         </TabsList>
@@ -875,7 +878,7 @@ export const CompanyDashboard = () => {
           </div>
         </TabsContent>
 
-        {/* INTERNS TAB - Now refreshes when clicked */}
+        {/* INTERNS TAB - With manual refresh button inside */}
         <TabsContent value="interns">
           <Card className="border-0 shadow-md">
             <CardHeader>
@@ -887,14 +890,17 @@ export const CompanyDashboard = () => {
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  onClick={() => {
-                    console.log('Manual refresh interns button clicked');
-                    refreshData();
+                  onClick={async () => {
+                    console.log('🟢 Manual refresh button clicked');
+                    setRefreshing(true);
+                    await refreshData();
+                    setRefreshing(false);
+                    toast.success('Interns data refreshed');
                   }}
-                  className="flex items-center gap-2"
+                  disabled={refreshing}
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  Refresh
+                  <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh Interns
                 </Button>
               </div>
             </CardHeader>
