@@ -40,27 +40,26 @@ const applicationStatusColor = {
 
 export const CompanyDashboard = () => {
   const { user } = useAuth();
-  const { notices: sharedNotices } = useSharedData();
+  const { 
+    jobs: jobPosts, 
+    applications, 
+    attendance, 
+    reports, 
+    interns, 
+    notices: sharedNotices,
+    loading,
+    refreshData
+  } = useSharedData();
   
-  // State for real data
-  const [jobPosts, setJobPosts] = useState([]);
-  const [reports, setReports] = useState([]);
-  const [applications, setApplications] = useState([]);
-  const [attendance, setAttendance] = useState([]);
-  const [interns, setInterns] = useState([]);
+  // Local state for UI only (not data fetching)
   const [notices, setNotices] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-  const abortControllerRef = useRef(null);
-  const [activeTab, setActiveTab] = useState('jobs');
   
   // Dialog states
   const [isJobDialogOpen, setIsJobDialogOpen] = useState(false);
   const [isAttendanceDialogOpen, setIsAttendanceDialogOpen] = useState(false);
   const [isApplicationDialogOpen, setIsApplicationDialogOpen] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
-  const [editingJob, setEditingJob] = useState(null);
   
   // Form states
   const [newJob, setNewJob] = useState({
@@ -83,103 +82,26 @@ export const CompanyDashboard = () => {
   });
   
   const [applicationStatus, setApplicationStatus] = useState('');
-
-  // Fetch company data with better error handling and abort controller
-  const fetchCompanyData = useCallback(async () => {
-    if (!user) return;
-    
-    // Cancel previous request if exists
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-    
-    try {
-      setRefreshing(true);
-      setError(null);
-      
-      // Get company info first (with timeout)
-      let companyId = null;
-      try {
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), 5000)
-        );
-        const companyPromise = api.get('/companies?contact_email=' + user.email);
-        const companyRes = await Promise.race([companyPromise, timeoutPromise]);
-        if (companyRes.data && companyRes.data.length > 0) {
-          companyId = companyRes.data[0].id;
-        }
-      } catch (e) {
-        console.log('Company lookup failed, using user ID');
-      }
-      
-      // Run all requests in parallel with Promise.allSettled for better performance
-      const [
-        jobsResult,
-        reportsResult,
-        appsResult,
-        attResult,
-        assignmentsResult,
-        noticesResult
-      ] = await Promise.allSettled([
-        api.get(`/jobs/?company_id=${companyId || user.id}`),
-        api.get(`/reports/?company_id=${companyId || ''}`),
-        api.get(`/applications/?company_id=${companyId || user.id}`),
-        api.get(`/attendance/?company_id=${companyId || user.id}`),
-        api.get(`/assignments/?company_id=${companyId || user.id}`),
-        api.get('/notices/')
-      ]);
-      
-      // Update state only if not aborted
-      if (!controller.signal.aborted) {
-        setJobPosts(jobsResult.status === 'fulfilled' ? jobsResult.value.data || [] : []);
-        setReports(reportsResult.status === 'fulfilled' ? reportsResult.value.data || [] : []);
-        setApplications(appsResult.status === 'fulfilled' ? appsResult.value.data || [] : []);
-        setAttendance(attResult.status === 'fulfilled' ? attResult.value.data || [] : []);
-        setInterns(assignmentsResult.status === 'fulfilled' ? assignmentsResult.value.data || [] : []);
-        setNotices(noticesResult.status === 'fulfilled' ? noticesResult.value.data || [] : []);
-        
-        // Log any failed requests
-        if (jobsResult.status === 'rejected') console.error('Jobs fetch failed:', jobsResult.reason);
-        if (reportsResult.status === 'rejected') console.error('Reports fetch failed:', reportsResult.reason);
-        if (appsResult.status === 'rejected') console.error('Applications fetch failed:', appsResult.reason);
-        if (attResult.status === 'rejected') console.error('Attendance fetch failed:', attResult.reason);
-        if (assignmentsResult.status === 'rejected') console.error('Assignments fetch failed:', assignmentsResult.reason);
-      }
-      
-    } catch (error) {
-      if (error.name !== 'AbortError' && error.code !== 'ERR_CANCELED') {
-        console.error('Failed to fetch company data:', error);
-        setError('Failed to load dashboard data. Please refresh.');
-        toast.error('Failed to load dashboard data');
-      }
-    } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchCompanyData();
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [fetchCompanyData]);
-
-  useEffect(() => {
-  if (activeTab === 'interns') {
-    fetchCompanyData();
-  }
-}, [activeTab]);
-
-  // Create new job with loading state
+  const [activeTab, setActiveTab] = useState('jobs');
+  
+  // Loading states for actions
   const [isCreatingJob, setIsCreatingJob] = useState(false);
+  const [isVerifyingReport, setIsVerifyingReport] = useState(false);
+  const [isDeletingJob, setIsDeletingJob] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isLoggingAttendance, setIsLoggingAttendance] = useState(false);
+
+  // Combine notices
+  const allNotices = sharedNotices.length > 0 ? sharedNotices : notices;
+
+  // Handle refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshData();
+    setRefreshing(false);
+  };
+
+  // Create new job
   const handleCreateJob = async () => {
     if (!newJob.title || !newJob.description) {
       toast.error('Please fill in title and description');
@@ -212,7 +134,7 @@ export const CompanyDashboard = () => {
         requirements: '',
         expires_at: ''
       });
-      fetchCompanyData();
+      refreshData();
     } catch (error) {
       console.error('Failed to create job:', error);
       toast.error(error.response?.data?.detail || 'Failed to post job');
@@ -221,8 +143,7 @@ export const CompanyDashboard = () => {
     }
   };
 
-  // Verify report with loading state
-  const [isVerifyingReport, setIsVerifyingReport] = useState(false);
+  // Verify report
   const handleVerifyReport = async (reportId, status) => {
     setIsVerifyingReport(true);
     try {
@@ -230,7 +151,7 @@ export const CompanyDashboard = () => {
         params: { status: status } 
       });
       toast.success(`Report ${status}`);
-      fetchCompanyData();
+      refreshData();
     } catch (error) {
       console.error('Failed to update report status:', error);
       toast.error(error.response?.data?.detail || 'Failed to update report status');
@@ -239,8 +160,7 @@ export const CompanyDashboard = () => {
     }
   };
 
-  // Delete job with confirmation
-  const [isDeletingJob, setIsDeletingJob] = useState(false);
+  // Delete job
   const handleDeleteJob = async (jobId, jobTitle) => {
     if (!confirm(`Are you sure you want to delete "${jobTitle}"? This action cannot be undone.`)) {
       return;
@@ -250,7 +170,7 @@ export const CompanyDashboard = () => {
     try {
       await api.delete(`/jobs/${jobId}`);
       toast.success('Job deleted successfully');
-      fetchCompanyData();
+      refreshData();
     } catch (error) {
       console.error('Failed to delete job:', error);
       toast.error(error.response?.data?.detail || 'Failed to delete job');
@@ -260,7 +180,6 @@ export const CompanyDashboard = () => {
   };
 
   // Update application status
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const handleUpdateApplicationStatus = async (applicationId, newStatus) => {
     setIsUpdatingStatus(true);
     try {
@@ -268,7 +187,7 @@ export const CompanyDashboard = () => {
         params: { status: newStatus }
       });
       toast.success(`Application status updated to ${newStatus}`);
-      fetchCompanyData();
+      refreshData();
       setIsApplicationDialogOpen(false);
       setSelectedApplication(null);
     } catch (error) {
@@ -279,8 +198,7 @@ export const CompanyDashboard = () => {
     }
   };
 
-  // Log attendance with loading state
-  const [isLoggingAttendance, setIsLoggingAttendance] = useState(false);
+  // Log attendance
   const handleLogAttendance = async () => {
     if (!attendanceForm.student_id || !attendanceForm.date) {
       toast.error('Please select a student and date');
@@ -312,7 +230,7 @@ export const CompanyDashboard = () => {
           status: 'present',
           task: ''
         });
-        fetchCompanyData();
+        refreshData();
       }
     } catch (error) {
       console.error('Failed to log attendance:', error);
@@ -323,7 +241,7 @@ export const CompanyDashboard = () => {
     }
   };
 
-  // Get stats (memoized for performance)
+  // Calculate stats from context data
   const activeJobs = jobPosts.filter(j => j.status === 'active').length;
   const totalApplications = applications.length;
   const pendingApplications = applications.filter(a => a.status === 'pending').length;
@@ -331,26 +249,10 @@ export const CompanyDashboard = () => {
   const activeInterns = interns.filter(i => i.status === 'active').length;
   const pendingReports = reports.filter(r => r.status === 'pending').length;
 
-  // Combine notices from API and shared context
-  const allNotices = notices.length > 0 ? notices : sharedNotices || [];
-
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col justify-center items-center min-h-[400px] text-center">
-        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">Failed to Load Dashboard</h3>
-        <p className="text-gray-500 mb-4">{error}</p>
-        <Button onClick={fetchCompanyData} className="bg-gray-800">
-          <RefreshCw className="w-4 h-4 mr-2" /> Retry
-        </Button>
       </div>
     );
   }
@@ -379,7 +281,7 @@ export const CompanyDashboard = () => {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={fetchCompanyData} 
+            onClick={handleRefresh} 
             disabled={refreshing}
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
@@ -789,7 +691,7 @@ export const CompanyDashboard = () => {
                           </Badge>
                           <Button size="sm" variant="ghost">
                             <Eye className="w-4 h-4" />
-          </Button>
+                          </Button>
                         </div>
                       </div>
                     </div>

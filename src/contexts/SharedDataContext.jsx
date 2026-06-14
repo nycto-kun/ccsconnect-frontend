@@ -12,45 +12,44 @@ export const useSharedData = () => {
 
 export const SharedDataProvider = ({ children }) => {
   const { user } = useAuth();
+  
+  // State for all data types
   const [applications, setApplications] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [reports, setReports] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [notices, setNotices] = useState([]);
+  const [interns, setInterns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const abortControllerRef = useRef(null);
   const [stats, setStats] = useState({
     applicationsSent: 0,
     interviewsScheduled: 0,
     offersReceived: 0,
     profileViews: 0
   });
+  
+  const abortControllerRef = useRef(null);
+  const isFetchingRef = useRef(false);
 
-  // Fetch all student data with abort controller
+  // Fetch all student data
   const fetchStudentData = useCallback(async () => {
     if (!user || user.role !== 'student') return;
-
-    // Cancel previous request
+    if (isFetchingRef.current) return;
+    
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    isFetchingRef.current = true;
 
     try {
       setLoading(true);
       setError(null);
       
-      // Run all requests in parallel for faster loading
-      const [
-        appsResult,
-        attResult,
-        repResult,
-        jobsResult,
-        noticesResult
-      ] = await Promise.allSettled([
+      const [appsResult, attResult, repResult, jobsResult, noticesResult] = await Promise.allSettled([
         api.get(`/applications/?student_id=${user.id}`),
         api.get(`/attendance/?student_id=${user.id}`),
         api.get(`/reports/?student_id=${user.id}`),
@@ -69,35 +68,30 @@ export const SharedDataProvider = ({ children }) => {
         setJobs(jobsResult.status === 'fulfilled' ? jobsResult.value.data || [] : []);
         setNotices(noticesResult.status === 'fulfilled' ? noticesResult.value.data || [] : []);
         
-        // Update stats
         setStats({
           applicationsSent: apps.length,
           interviewsScheduled: apps.filter(a => a.status === 'interview').length,
           offersReceived: apps.filter(a => a.status === 'accepted').length,
           profileViews: apps.reduce((sum, a) => sum + (a.views || 0), 0)
         });
-        
-        // Log any failed requests for debugging
-        if (appsResult.status === 'rejected') console.error('Applications fetch failed:', appsResult.reason);
-        if (attResult.status === 'rejected') console.error('Attendance fetch failed:', attResult.reason);
-        if (repResult.status === 'rejected') console.error('Reports fetch failed:', repResult.reason);
       }
-      
     } catch (error) {
-      if (error.name !== 'AbortError' && error.code !== 'ERR_CANCELED') {
+      if (error.name !== 'AbortError') {
         console.error('Failed to fetch student data:', error);
-        setError('Failed to load data. Please refresh.');
+        setError('Failed to load data');
       }
     } finally {
       if (!controller.signal.aborted) {
         setLoading(false);
       }
+      isFetchingRef.current = false;
     }
   }, [user]);
 
   // Fetch admin data
   const fetchAdminData = useCallback(async () => {
     if (!user || user.role !== 'admin') return;
+    if (isFetchingRef.current) return;
     
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -105,23 +99,25 @@ export const SharedDataProvider = ({ children }) => {
     
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    isFetchingRef.current = true;
     
     try {
       setLoading(true);
       setError(null);
       
-      const [statsResult, noticesResult, jobsResult] = await Promise.allSettled([
+      const [statsResult, noticesResult, jobsResult, appsResult] = await Promise.allSettled([
         api.get('/admin/stats'),
         api.get('/notices/'),
-        api.get('/jobs/')
+        api.get('/jobs/'),
+        api.get('/applications/')
       ]);
       
       if (!controller.signal.aborted) {
         if (statsResult.status === 'fulfilled') setStats(statsResult.value.data);
         setNotices(noticesResult.status === 'fulfilled' ? noticesResult.value.data || [] : []);
         setJobs(jobsResult.status === 'fulfilled' ? jobsResult.value.data || [] : []);
+        setApplications(appsResult.status === 'fulfilled' ? appsResult.value.data || [] : []);
       }
-      
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('Failed to fetch admin data:', error);
@@ -129,53 +125,75 @@ export const SharedDataProvider = ({ children }) => {
       }
     } finally {
       if (!controller.signal.aborted) setLoading(false);
+      isFetchingRef.current = false;
     }
   }, [user]);
 
-  // Fetch company data
- // Fetch company data
-const fetchCompanyData = async () => {
-  if (!user || user.role !== 'company') return;
-  
-  try {
-    setLoading(true);
+  // Fetch company data (single source of truth)
+  const fetchCompanyData = useCallback(async () => {
+    if (!user || user.role !== 'company') return;
+    if (isFetchingRef.current) return;
     
-    // Get company_id from user
-    let companyId = null;
-    try {
-      const userRes = await api.get('/auth/me');
-      companyId = userRes.data?.company_id;
-    } catch (e) {
-      console.log('Could not get company_id');
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
     
-    // Fetch jobs
-    const jobsRes = await api.get(`/jobs/?company_id=${companyId || user.id}`);
-    setJobs(jobsRes.data || []);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    isFetchingRef.current = true;
     
-    // Fetch applications
-    const appsRes = await api.get(`/applications/?company_id=${companyId || user.id}`);
-    setApplications(appsRes.data || []);
-    
-    // Fetch attendance
-    const attRes = await api.get(`/attendance/?company_id=${companyId || user.id}`);
-    setAttendance(attRes.data || []);
-    
-    // Fetch assignments (interns) - THIS WAS MISSING
-    const assignmentsRes = await api.get(`/assignments/?company_id=${companyId || user.id}`);
-    // Store assignments in a separate state or add to a new state
-    // You can add a new state called 'interns' in SharedDataContext
-    
-    // Fetch notices
-    const noticesRes = await api.get('/notices/');
-    setNotices(noticesRes.data || []);
-    
-  } catch (error) {
-    console.error('Failed to fetch company data:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get company_id from user profile
+      let companyId = null;
+      try {
+        const userRes = await api.get('/auth/me');
+        companyId = userRes.data?.company_id;
+      } catch (e) {
+        console.log('Could not get company_id, using fallback');
+      }
+      
+      // Fetch all company data in parallel
+      const [jobsResult, appsResult, attResult, assignmentsResult, reportsResult, noticesResult] = await Promise.allSettled([
+        api.get(`/jobs/?company_id=${companyId || user.id}`),
+        api.get(`/applications/?company_id=${companyId || user.id}`),
+        api.get(`/attendance/?company_id=${companyId || user.id}`),
+        api.get(`/assignments/?company_id=${companyId || user.id}`),
+        api.get(`/reports/?company_id=${companyId || ''}`),
+        api.get('/notices/')
+      ]);
+      
+      if (!controller.signal.aborted) {
+        setJobs(jobsResult.status === 'fulfilled' ? jobsResult.value.data || [] : []);
+        setApplications(appsResult.status === 'fulfilled' ? appsResult.value.data || [] : []);
+        setAttendance(attResult.status === 'fulfilled' ? attResult.value.data || [] : []);
+        setInterns(assignmentsResult.status === 'fulfilled' ? assignmentsResult.value.data || [] : []);
+        setReports(reportsResult.status === 'fulfilled' ? reportsResult.value.data || [] : []);
+        setNotices(noticesResult.status === 'fulfilled' ? noticesResult.value.data || [] : []);
+        
+        // Calculate company stats
+        const activeJobs = (jobsResult.status === 'fulfilled' ? jobsResult.value.data || [] : []).filter(j => j.status === 'active').length;
+        setStats(prev => ({
+          ...prev,
+          activeJobs,
+          totalApplications: appsResult.status === 'fulfilled' ? (appsResult.value.data || []).length : 0,
+          activeInterns: assignmentsResult.status === 'fulfilled' ? (assignmentsResult.value.data || []).filter(i => i.status === 'active').length : 0
+        }));
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Failed to fetch company data:', error);
+        setError('Failed to load company data');
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
+      isFetchingRef.current = false;
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -191,7 +209,7 @@ const fetchCompanyData = async () => {
     };
   }, [user, fetchStudentData, fetchAdminData, fetchCompanyData]);
 
-  // Helper functions (memoized for performance)
+  // Helper functions
   const getStudentAttendance = useCallback((studentId) => {
     return attendance.filter(r => r.student_id === studentId).sort((a, b) => b.date?.localeCompare(a.date));
   }, [attendance]);
@@ -219,6 +237,7 @@ const fetchCompanyData = async () => {
     reports,
     jobs,
     notices,
+    interns,
     stats,
     loading,
     error,
