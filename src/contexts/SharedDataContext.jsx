@@ -133,43 +133,49 @@ export const SharedDataProvider = ({ children }) => {
   }, [user]);
 
   // Fetch company data
-  const fetchCompanyData = useCallback(async () => {
-    if (!user || user.role !== 'company') return;
+ // Fetch company data
+const fetchCompanyData = async () => {
+  if (!user || user.role !== 'company') return;
+  
+  try {
+    setLoading(true);
     
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-    
+    // Get company_id from user
+    let companyId = null;
     try {
-      setLoading(true);
-      setError(null);
-      
-      const [jobsResult, appsResult, attResult, noticesResult] = await Promise.allSettled([
-        api.get(`/jobs/?company_id=${user.id}`),
-        api.get(`/applications/?company_id=${user.id}`),
-        api.get(`/attendance/?company_id=${user.id}`),
-        api.get('/notices/')
-      ]);
-      
-      if (!controller.signal.aborted) {
-        setJobs(jobsResult.status === 'fulfilled' ? jobsResult.value.data || [] : []);
-        setApplications(appsResult.status === 'fulfilled' ? appsResult.value.data || [] : []);
-        setAttendance(attResult.status === 'fulfilled' ? attResult.value.data || [] : []);
-        setNotices(noticesResult.status === 'fulfilled' ? noticesResult.value.data || [] : []);
-      }
-      
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error('Failed to fetch company data:', error);
-        setError('Failed to load company data');
-      }
-    } finally {
-      if (!controller.signal.aborted) setLoading(false);
+      const userRes = await api.get('/auth/me');
+      companyId = userRes.data?.company_id;
+    } catch (e) {
+      console.log('Could not get company_id');
     }
-  }, [user]);
+    
+    // Fetch jobs
+    const jobsRes = await api.get(`/jobs/?company_id=${companyId || user.id}`);
+    setJobs(jobsRes.data || []);
+    
+    // Fetch applications
+    const appsRes = await api.get(`/applications/?company_id=${companyId || user.id}`);
+    setApplications(appsRes.data || []);
+    
+    // Fetch attendance
+    const attRes = await api.get(`/attendance/?company_id=${companyId || user.id}`);
+    setAttendance(attRes.data || []);
+    
+    // Fetch assignments (interns) - THIS WAS MISSING
+    const assignmentsRes = await api.get(`/assignments/?company_id=${companyId || user.id}`);
+    // Store assignments in a separate state or add to a new state
+    // You can add a new state called 'interns' in SharedDataContext
+    
+    // Fetch notices
+    const noticesRes = await api.get('/notices/');
+    setNotices(noticesRes.data || []);
+    
+  } catch (error) {
+    console.error('Failed to fetch company data:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     if (!user) return;
