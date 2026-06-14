@@ -53,6 +53,7 @@ export const CompanyDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const abortControllerRef = useRef(null);
+  const [activeTab, setActiveTab] = useState('jobs');
   
   // Dialog states
   const [isJobDialogOpen, setIsJobDialogOpen] = useState(false);
@@ -170,6 +171,12 @@ export const CompanyDashboard = () => {
       }
     };
   }, [fetchCompanyData]);
+
+  useEffect(() => {
+  if (activeTab === 'interns') {
+    fetchCompanyData();
+  }
+}, [activeTab]);
 
   // Create new job with loading state
   const [isCreatingJob, setIsCreatingJob] = useState(false);
@@ -501,7 +508,7 @@ export const CompanyDashboard = () => {
         </Card>
       )}
 
-      <Tabs defaultValue="jobs" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-gray-100 dark:bg-gray-800 rounded-xl p-1 h-auto flex-wrap gap-1">
           <TabsTrigger value="jobs" className="rounded-lg">
             <Briefcase className="w-4 h-4 mr-2" /> Job Posts
