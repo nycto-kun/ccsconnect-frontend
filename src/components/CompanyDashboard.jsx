@@ -895,6 +895,8 @@ const {
               <CardDescription>Track your interns' progress and attendance</CardDescription>
             </CardHeader>
             <CardContent>
+                 {/* DEBUG: Add this line to see if interns data is available */}
+      {console.log('Rendering Interns tab, interns count:', interns?.length)}
               {interns.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
