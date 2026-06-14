@@ -4,7 +4,8 @@ import {
   User, Mail, Phone, MapPin, Calendar, Briefcase, GraduationCap,
   Award, Star, FileText, Edit3, Upload, CheckCircle, Clock,
   Link, Github, Linkedin, Globe, Shield, Code, Save, Eye, EyeOff,
-  Camera, Download, Trophy, BookOpen, Users, Lock, X, Loader2
+  Camera, Download, Trophy, BookOpen, Users, Lock, X, Loader2,
+  TrendingUp
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
