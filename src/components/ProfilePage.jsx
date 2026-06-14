@@ -129,11 +129,9 @@ export const ProfilePage = ({ userRole: propRole }) => {
         resume_text: ''
       });
       console.log('AI embedding response:', response.data);
-      toast.success('AI matching updated!');
       return true;
     } catch (error) {
       console.error('Failed to generate AI embedding:', error);
-      toast.error('Failed to update AI matching');
       return false;
     } finally {
       setUpdatingAI(false);
@@ -145,7 +143,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
     resumeInputRef.current?.click();
   };
 
-  // Handle resume file selection
+  // Handle resume file selection (backend does PDF parsing)
   const handleResumeFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -160,26 +158,25 @@ export const ProfilePage = ({ userRole: propRole }) => {
     
     try {
       setUploading(true);
-      toast.loading('Uploading resume...');
+      toast.loading('Uploading resume and extracting skills...');
+      
       const response = await api.post('/upload/resume', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setProfileData(prev => ({ ...prev, resume_url: response.data.url }));
-      toast.dismiss();
-      toast.success('Resume uploaded successfully');
       
-      // Generate AI embedding after resume upload
-      const currentSkills = profileData.skills || [];
-      if (currentSkills.length > 0) {
-        await generateAIEmbedding(currentSkills);
-      } else {
-        toast.info('Add skills in Settings for better job matching');
-      }
+      setProfileData(prev => ({ 
+        ...prev, 
+        resume_url: response.data.url,
+        skills: response.data.extracted_skills || prev.skills
+      }));
+      
+      toast.dismiss();
+      toast.success(`Resume uploaded! Found ${response.data.extracted_skills?.length || 0} skills.`);
       
     } catch (err) {
       toast.dismiss();
       console.error('Upload failed:', err);
-      toast.error('Upload failed');
+      toast.error('Upload failed: ' + (err.response?.data?.detail || err.message));
     } finally {
       setUploading(false);
       if (resumeInputRef.current) resumeInputRef.current.value = '';
@@ -260,7 +257,14 @@ export const ProfilePage = ({ userRole: propRole }) => {
       return;
     }
     
-    await generateAIEmbedding(currentSkills);
+    toast.loading('Updating AI matching...');
+    const success = await generateAIEmbedding(currentSkills);
+    toast.dismiss();
+    if (success) {
+      toast.success('AI matching updated!');
+    } else {
+      toast.error('Failed to update AI matching');
+    }
   };
 
   const handleEditProfile = () => {
@@ -504,7 +508,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
                           <FileText className="w-8 h-8 text-green-500" />
                         </div>
                         <p className="text-sm text-green-600 dark:text-green-400 mb-2">✓ Resume uploaded</p>
-                        <p className="text-xs text-gray-500 mb-4">Helps AI match you with relevant jobs</p>
+                        <p className="text-xs text-gray-500 mb-4">Skills are automatically extracted from your resume</p>
                         <div className="flex gap-2 justify-center flex-wrap">
                           <Button 
                             variant="outline" 
@@ -527,7 +531,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
                       <>
                         <Upload className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                         <p className="text-gray-600 dark:text-gray-400 mb-2">Upload your resume (PDF)</p>
-                        <p className="text-xs text-gray-500 mb-4">Helps AI match you with relevant jobs</p>
+                        <p className="text-xs text-gray-500 mb-4">Skills will be automatically extracted for AI matching</p>
                         <Button 
                           variant="outline" 
                           onClick={handleResumeButtonClick}
@@ -542,7 +546,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
                     {uploading && (
                       <div className="mt-3 flex items-center justify-center gap-2">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="text-sm">Uploading...</span>
+                        <span className="text-sm">Processing resume...</span>
                       </div>
                     )}
                   </div>
@@ -588,7 +592,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
                     {updatingAI ? 'Updating...' : 'Update AI Matching'}
                   </Button>
                   <p className="text-xs text-gray-400 mt-2">
-                    Add skills and upload resume for personalized job recommendations
+                    Upload your resume and add skills for personalized job recommendations
                   </p>
                 </CardContent>
               </Card>
@@ -637,7 +641,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mt-3">
-                      Update skills in Settings → Account for better AI job matching
+                      Skills are automatically extracted from your resume or can be added manually in Settings
                     </p>
                   </CardContent>
                 </Card>
