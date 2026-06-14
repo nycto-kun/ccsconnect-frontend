@@ -196,35 +196,39 @@ const fetchOpportunities = async () => {
 const getFilteredOpportunities = () => {
   let filtered = [...opportunities];
   
+  console.log('Filtering opportunities. Active tab:', activeTab);
+  console.log('Total opportunities:', filtered.length);
+  console.log('Recommended opportunities:', filtered.filter(o => o.isRecommended).length);
+  
   if (activeTab === 'recommended') {
-    // Only show jobs that have isRecommended = true AND matchScore > 0
     filtered = filtered.filter(opp => opp.isRecommended === true && opp.matchScore > 0);
-    console.log('Recommended tab - showing:', filtered.length, 'jobs with scores:', filtered.map(o => ({ title: o.title, score: o.matchScore })));
+    console.log('After recommended filter:', filtered.length);
   } else if (activeTab === 'bookmarked') {
     filtered = filtered.filter(opp => bookmarks.has(opp.id));
+    console.log('After bookmarked filter:', filtered.length);
   } else if (activeTab !== 'all') {
     filtered = filtered.filter(opp => opp.type === activeTab);
   }
-    
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(opp => 
-        opp.title?.toLowerCase().includes(q) || 
-        opp.company_name?.toLowerCase().includes(q) || 
-        opp.skills?.some(s => s.toLowerCase().includes(q))
-      );
-    }
-    
-    if (selectedType !== 'all') {
-      filtered = filtered.filter(opp => opp.type === selectedType);
-    }
-    
-    if (selectedLocation !== 'all') {
-      filtered = filtered.filter(opp => opp.location?.includes(selectedLocation));
-    }
-    
-    return filtered;
-  };
+  
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter(opp => 
+      opp.title?.toLowerCase().includes(q) || 
+      opp.company_name?.toLowerCase().includes(q) || 
+      opp.skills?.some(s => s.toLowerCase().includes(q))
+    );
+  }
+  
+  if (selectedType !== 'all') {
+    filtered = filtered.filter(opp => opp.type === selectedType);
+  }
+  
+  if (selectedLocation !== 'all') {
+    filtered = filtered.filter(opp => opp.location?.includes(selectedLocation));
+  }
+  
+  return filtered;
+};
 
   const getDaysRemaining = (deadline) => {
     if (!deadline) return 30;
