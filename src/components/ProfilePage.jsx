@@ -4,7 +4,7 @@ import {
   User, Mail, Phone, MapPin, Calendar, Briefcase, GraduationCap,
   Award, Star, FileText, Edit3, Upload, CheckCircle, Clock,
   Link, Github, Linkedin, Globe, Shield, Code, Save, Eye, EyeOff,
-  Camera, Download, Trophy, BookOpen, Users, Lock, X
+  Camera, Download, Trophy, BookOpen, Users, Lock, X, Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -15,17 +15,20 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { toast } from 'sonner';
 
 export const ProfilePage = ({ userRole: propRole }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [showCoverDialog, setShowCoverDialog] = useState(false);
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [uploadType, setUploadType] = useState(null); // 'avatar' or 'cover'
+  const [uploadType, setUploadType] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   
   const [profileData, setProfileData] = useState({
     full_name: '',
@@ -86,14 +89,18 @@ export const ProfilePage = ({ userRole: propRole }) => {
         
         // Fetch stats if student
         if (userRole === 'student') {
-          const appsRes = await api.get(`/applications?student_id=${user.id}`);
-          const apps = appsRes.data || [];
-          setStats({
-            applications: apps.length,
-            interviews: apps.filter(a => a.status === 'interview').length,
-            offers: apps.filter(a => a.status === 'accepted').length,
-            profileViews: 23
-          });
+          try {
+            const appsRes = await api.get(`/applications/?student_id=${user.id}`);
+            const apps = appsRes.data || [];
+            setStats({
+              applications: apps.length,
+              interviews: apps.filter(a => a.status === 'interview').length,
+              offers: apps.filter(a => a.status === 'accepted').length,
+              profileViews: 23
+            });
+          } catch (err) {
+            console.log('Stats not available');
+          }
         }
       } catch (error) {
         console.error('Failed to fetch profile:', error);
@@ -110,6 +117,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
   const handleFileSelect = (type) => {
     setUploadType(type);
     setSelectedFile(null);
+    setPreviewUrl(null);
     if (type === 'avatar') {
       setShowAvatarDialog(true);
     } else {
@@ -117,7 +125,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
     }
   };
 
-  // Handle file change
+  // Handle file change with preview
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -126,6 +134,9 @@ export const ProfilePage = ({ userRole: propRole }) => {
         return;
       }
       setSelectedFile(file);
+      // Create preview URL
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
     }
   };
 
@@ -139,7 +150,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
     setUploading(true);
     const formData = new FormData();
     formData.append('file', selectedFile);
-    formData.append('type', uploadType);
+    formData.append('image_type', uploadType);  // IMPORTANT: Must be 'image_type' not 'type'
     
     try {
       const response = await api.post('/upload/profile-image', formData, {
@@ -156,12 +167,29 @@ export const ProfilePage = ({ userRole: propRole }) => {
         setShowCoverDialog(false);
       }
       setSelectedFile(null);
+      setPreviewUrl(null);
     } catch (error) {
       console.error('Upload failed:', error);
-      toast.error('Failed to upload image');
+      toast.error(error.response?.data?.detail || 'Failed to upload image');
     } finally {
       setUploading(false);
     }
+  };
+
+  // Close dialog and cleanup
+  const handleCloseDialog = (dialogType) => {
+    if (dialogType === 'avatar') {
+      setShowAvatarDialog(false);
+    } else {
+      setShowCoverDialog(false);
+    }
+    setSelectedFile(null);
+    setPreviewUrl(null);
+  };
+
+  // Handle edit profile navigation
+  const handleEditProfile = () => {
+    navigate('/settings');
   };
 
   const profileCompletion = () => {
@@ -179,7 +207,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800"></div>
+        <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
       </div>
     );
   }
@@ -247,7 +275,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
               )}
               {profileData.department && (
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
-                  {profileData.department} {profileData.year ? `· Year {profileData.year}` : ''}
+                  {profileData.department} {profileData.year ? `· Year ${profileData.year}` : ''}
                 </p>
               )}
               <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -258,7 +286,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
 
             <div className="flex flex-wrap gap-3 items-center">
               <Button 
-                onClick={() => window.location.href = '/settings'}
+                onClick={handleEditProfile}
                 className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white"
               >
                 <Edit3 className="w-4 h-4" />
@@ -277,7 +305,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
           </div>
         </div>
 
-        {/* Main Content - Display Only (No Edit Forms) */}
+        {/* Main Content - Display Only */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - About & Contact */}
           <div className="lg:col-span-1 space-y-6">
@@ -369,13 +397,59 @@ export const ProfilePage = ({ userRole: propRole }) => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {profileData.resume_url ? (
-                    <Button variant="outline" size="sm" className="w-full" onClick={() => window.open(profileData.resume_url, '_blank')}>
-                      <Download className="w-4 h-4 mr-2" /> View Resume
-                    </Button>
-                  ) : (
-                    <p className="text-gray-500 text-sm text-center">No resume uploaded</p>
-                  )}
+                  <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+                    {profileData.resume_url ? (
+                      <>
+                        <p className="text-sm text-green-600 mb-2">✓ Resume uploaded</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => window.open(profileData.resume_url, '_blank')}
+                        >
+                          <Download className="w-4 h-4 mr-2" /> View Resume
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-gray-500 text-sm mb-2">No resume uploaded</p>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={async (e) => {
+                            const file = e.target.files[0];
+                            if (!file) return;
+                            if (!file.name.endsWith('.pdf')) {
+                              toast.error('Only PDF files are allowed');
+                              return;
+                            }
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            try {
+                              setUploading(true);
+                              const response = await api.post('/upload/resume', formData, {
+                                headers: { 'Content-Type': 'multipart/form-data' }
+                              });
+                              setProfileData(prev => ({ ...prev, resume_url: response.data.url }));
+                              toast.success('Resume uploaded');
+                            } catch (err) {
+                              toast.error('Upload failed');
+                            } finally {
+                              setUploading(false);
+                            }
+                          }}
+                          className="hidden"
+                          id="resume-upload"
+                        />
+                        <label htmlFor="resume-upload">
+                          <Button variant="outline" size="sm" className="w-full cursor-pointer" disabled={uploading}>
+                            <Upload className="w-4 h-4 mr-2" />
+                            {uploading ? 'Uploading...' : 'Upload Resume'}
+                          </Button>
+                        </label>
+                      </>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -463,13 +537,14 @@ export const ProfilePage = ({ userRole: propRole }) => {
           </DialogHeader>
           <div className="space-y-4">
             <Input type="file" accept="image/*" onChange={handleFileChange} />
-            {selectedFile && (
-              <img src={URL.createObjectURL(selectedFile)} alt="Preview" className="w-full h-32 object-cover rounded-lg" />
+            {previewUrl && (
+              <img src={previewUrl} alt="Preview" className="w-full h-32 object-cover rounded-lg" />
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCoverDialog(false)}>Cancel</Button>
-            <Button onClick={handleUpload} disabled={uploading} className="bg-gray-800">
+            <Button variant="outline" onClick={() => handleCloseDialog('cover')}>Cancel</Button>
+            <Button onClick={handleUpload} disabled={uploading || !selectedFile} className="bg-gray-800">
+              {uploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
               {uploading ? 'Uploading...' : 'Upload'}
             </Button>
           </DialogFooter>
@@ -484,13 +559,14 @@ export const ProfilePage = ({ userRole: propRole }) => {
           </DialogHeader>
           <div className="space-y-4">
             <Input type="file" accept="image/*" onChange={handleFileChange} />
-            {selectedFile && (
-              <img src={URL.createObjectURL(selectedFile)} alt="Preview" className="w-32 h-32 object-cover rounded-full mx-auto" />
+            {previewUrl && (
+              <img src={previewUrl} alt="Preview" className="w-32 h-32 object-cover rounded-full mx-auto" />
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAvatarDialog(false)}>Cancel</Button>
-            <Button onClick={handleUpload} disabled={uploading} className="bg-gray-800">
+            <Button variant="outline" onClick={() => handleCloseDialog('avatar')}>Cancel</Button>
+            <Button onClick={handleUpload} disabled={uploading || !selectedFile} className="bg-gray-800">
+              {uploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
               {uploading ? 'Uploading...' : 'Upload'}
             </Button>
           </DialogFooter>

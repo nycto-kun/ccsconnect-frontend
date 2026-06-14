@@ -104,6 +104,7 @@ function AppContent() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/verify-registration" element={<VerifyRegistration />} />  {/* <-- NEW ROUTE */}
+      <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route
         path="/*"
         element={

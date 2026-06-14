@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
   Briefcase, FileText, UserCheck, Calendar, ClipboardList, Bell,
@@ -51,6 +51,8 @@ export const CompanyDashboard = () => {
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const abortControllerRef = useRef(null);
   
   // Dialog states
   const [isJobDialogOpen, setIsJobDialogOpen] = useState(false);
@@ -81,17 +83,30 @@ export const CompanyDashboard = () => {
   
   const [applicationStatus, setApplicationStatus] = useState('');
 
-  // Fetch company data
-  const fetchCompanyData = async () => {
+  // Fetch company data with better error handling and abort controller
+  const fetchCompanyData = useCallback(async () => {
     if (!user) return;
+    
+    // Cancel previous request if exists
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     
     try {
       setRefreshing(true);
+      setError(null);
       
-      // Get company info first
+      // Get company info first (with timeout)
       let companyId = null;
       try {
-        const companyRes = await api.get('/companies?contact_email=' + user.email);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 5000)
+        );
+        const companyPromise = api.get('/companies?contact_email=' + user.email);
+        const companyRes = await Promise.race([companyPromise, timeoutPromise]);
         if (companyRes.data && companyRes.data.length > 0) {
           companyId = companyRes.data[0].id;
         }
@@ -99,49 +114,72 @@ export const CompanyDashboard = () => {
         console.log('Company lookup failed, using user ID');
       }
       
-      // Fetch jobs
-      const jobsRes = await api.get(`/jobs/?company_id=${companyId || user.id}`);
-      setJobPosts(jobsRes.data || []);
+      // Run all requests in parallel with Promise.allSettled for better performance
+      const [
+        jobsResult,
+        reportsResult,
+        appsResult,
+        attResult,
+        assignmentsResult,
+        noticesResult
+      ] = await Promise.allSettled([
+        api.get(`/jobs/?company_id=${companyId || user.id}`),
+        api.get(`/reports/?company_id=${companyId || ''}`),
+        api.get(`/applications/?company_id=${companyId || user.id}`),
+        api.get(`/attendance/?company_id=${companyId || user.id}`),
+        api.get(`/assignments/?company_id=${companyId || user.id}`),
+        api.get('/notices/')
+      ]);
       
-      // Fetch reports
-      const reportsRes = await api.get(`/reports/?company_id=${companyId || ''}`);
-      setReports(reportsRes.data || []);
-      // Fetch applications
-      const appsRes = await api.get(`/applications/?company_id=${companyId || user.id}`);
-      setApplications(appsRes.data || []);
-      
-      // Fetch attendance
-      const attRes = await api.get(`/attendance/?company_id=${companyId || user.id}`);
-      setAttendance(attRes.data || []);
-      
-      // Fetch assigned interns
-      const assignmentsRes = await api.get(`/assignments/?company_id=${companyId || user.id}`);
-      setInterns(assignmentsRes.data || []);
-      
-      // Fetch notices
-      const noticesRes = await api.get('/notices/');
-      setNotices(noticesRes.data || []);
+      // Update state only if not aborted
+      if (!controller.signal.aborted) {
+        setJobPosts(jobsResult.status === 'fulfilled' ? jobsResult.value.data || [] : []);
+        setReports(reportsResult.status === 'fulfilled' ? reportsResult.value.data || [] : []);
+        setApplications(appsResult.status === 'fulfilled' ? appsResult.value.data || [] : []);
+        setAttendance(attResult.status === 'fulfilled' ? attResult.value.data || [] : []);
+        setInterns(assignmentsResult.status === 'fulfilled' ? assignmentsResult.value.data || [] : []);
+        setNotices(noticesResult.status === 'fulfilled' ? noticesResult.value.data || [] : []);
+        
+        // Log any failed requests
+        if (jobsResult.status === 'rejected') console.error('Jobs fetch failed:', jobsResult.reason);
+        if (reportsResult.status === 'rejected') console.error('Reports fetch failed:', reportsResult.reason);
+        if (appsResult.status === 'rejected') console.error('Applications fetch failed:', appsResult.reason);
+        if (attResult.status === 'rejected') console.error('Attendance fetch failed:', attResult.reason);
+        if (assignmentsResult.status === 'rejected') console.error('Assignments fetch failed:', assignmentsResult.reason);
+      }
       
     } catch (error) {
-      console.error('Failed to fetch company data:', error);
-      toast.error('Failed to load dashboard data');
+      if (error.name !== 'AbortError' && error.code !== 'ERR_CANCELED') {
+        console.error('Failed to fetch company data:', error);
+        setError('Failed to load dashboard data. Please refresh.');
+        toast.error('Failed to load dashboard data');
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchCompanyData();
-  }, [user]);
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [fetchCompanyData]);
 
-  // Create new job
+  // Create new job with loading state
+  const [isCreatingJob, setIsCreatingJob] = useState(false);
   const handleCreateJob = async () => {
     if (!newJob.title || !newJob.description) {
       toast.error('Please fill in title and description');
       return;
     }
     
+    setIsCreatingJob(true);
     try {
       const jobData = {
         title: newJob.title,
@@ -171,28 +209,37 @@ export const CompanyDashboard = () => {
     } catch (error) {
       console.error('Failed to create job:', error);
       toast.error(error.response?.data?.detail || 'Failed to post job');
+    } finally {
+      setIsCreatingJob(false);
     }
   };
 
-const handleVerifyReport = async (reportId, status) => {
-  try {
-    await api.patch(`/reports/${reportId}/verify`, null, { 
-      params: { status: status } 
-    });
-    toast.success(`Report ${status}`);
-    fetchCompanyData();
-  } catch (error) {
-    console.error('Failed to update report status:', error);
-    toast.error(error.response?.data?.detail || 'Failed to update report status');
-  }
-};
+  // Verify report with loading state
+  const [isVerifyingReport, setIsVerifyingReport] = useState(false);
+  const handleVerifyReport = async (reportId, status) => {
+    setIsVerifyingReport(true);
+    try {
+      await api.patch(`/reports/${reportId}/verify`, null, { 
+        params: { status: status } 
+      });
+      toast.success(`Report ${status}`);
+      fetchCompanyData();
+    } catch (error) {
+      console.error('Failed to update report status:', error);
+      toast.error(error.response?.data?.detail || 'Failed to update report status');
+    } finally {
+      setIsVerifyingReport(false);
+    }
+  };
 
-  // Delete job
+  // Delete job with confirmation
+  const [isDeletingJob, setIsDeletingJob] = useState(false);
   const handleDeleteJob = async (jobId, jobTitle) => {
     if (!confirm(`Are you sure you want to delete "${jobTitle}"? This action cannot be undone.`)) {
       return;
     }
     
+    setIsDeletingJob(true);
     try {
       await api.delete(`/jobs/${jobId}`);
       toast.success('Job deleted successfully');
@@ -200,11 +247,15 @@ const handleVerifyReport = async (reportId, status) => {
     } catch (error) {
       console.error('Failed to delete job:', error);
       toast.error(error.response?.data?.detail || 'Failed to delete job');
+    } finally {
+      setIsDeletingJob(false);
     }
   };
 
   // Update application status
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const handleUpdateApplicationStatus = async (applicationId, newStatus) => {
+    setIsUpdatingStatus(true);
     try {
       await api.patch(`/applications/${applicationId}`, null, {
         params: { status: newStatus }
@@ -216,55 +267,62 @@ const handleVerifyReport = async (reportId, status) => {
     } catch (error) {
       console.error('Failed to update status:', error);
       toast.error(error.response?.data?.detail || 'Failed to update status');
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
-  // Log attendance
-const handleLogAttendance = async () => {
-  if (!attendanceForm.student_id || !attendanceForm.date) {
-    toast.error('Please select a student and date');
-    return;
-  }
-  
-  if (attendanceForm.status !== 'absent' && !attendanceForm.task.trim()) {
-    toast.error('Please enter the task/work done');
-    return;
-  }
-  
-  try {
-    const response = await api.post('/attendance/', {
-      student_id: attendanceForm.student_id,
-      date_str: attendanceForm.date,
-      hours_worked: parseFloat(attendanceForm.hours_worked),
-      status: attendanceForm.status,
-      task: attendanceForm.task,
-    });
-    
-    if (response.data) {
-      toast.success('Attendance logged successfully');
-      setIsAttendanceDialogOpen(false);
-      setAttendanceForm({
-        student_id: '',
-        date: new Date().toISOString().split('T')[0],
-        hours_worked: '8',
-        status: 'present',
-        task: ''
-      });
-      fetchCompanyData(); // Refresh data
+  // Log attendance with loading state
+  const [isLoggingAttendance, setIsLoggingAttendance] = useState(false);
+  const handleLogAttendance = async () => {
+    if (!attendanceForm.student_id || !attendanceForm.date) {
+      toast.error('Please select a student and date');
+      return;
     }
-  } catch (error) {
-    console.error('Failed to log attendance:', error);
-    const errorMsg = error.response?.data?.detail || error.response?.data?.message || 'Failed to log attendance';
-    toast.error(errorMsg);
-  }
-};
+    
+    if (attendanceForm.status !== 'absent' && !attendanceForm.task.trim()) {
+      toast.error('Please enter the task/work done');
+      return;
+    }
+    
+    setIsLoggingAttendance(true);
+    try {
+      const response = await api.post('/attendance/', {
+        student_id: attendanceForm.student_id,
+        date_str: attendanceForm.date,
+        hours_worked: parseFloat(attendanceForm.hours_worked),
+        status: attendanceForm.status,
+        task: attendanceForm.task,
+      });
+      
+      if (response.data) {
+        toast.success('Attendance logged successfully');
+        setIsAttendanceDialogOpen(false);
+        setAttendanceForm({
+          student_id: '',
+          date: new Date().toISOString().split('T')[0],
+          hours_worked: '8',
+          status: 'present',
+          task: ''
+        });
+        fetchCompanyData();
+      }
+    } catch (error) {
+      console.error('Failed to log attendance:', error);
+      const errorMsg = error.response?.data?.detail || error.response?.data?.message || 'Failed to log attendance';
+      toast.error(errorMsg);
+    } finally {
+      setIsLoggingAttendance(false);
+    }
+  };
 
-  // Get stats
+  // Get stats (memoized for performance)
   const activeJobs = jobPosts.filter(j => j.status === 'active').length;
   const totalApplications = applications.length;
   const pendingApplications = applications.filter(a => a.status === 'pending').length;
   const totalAttendance = attendance.length;
   const activeInterns = interns.filter(i => i.status === 'active').length;
+  const pendingReports = reports.filter(r => r.status === 'pending').length;
 
   // Combine notices from API and shared context
   const allNotices = notices.length > 0 ? notices : sharedNotices || [];
@@ -273,6 +331,19 @@ const handleLogAttendance = async () => {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[400px] text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">Failed to Load Dashboard</h3>
+        <p className="text-gray-500 mb-4">{error}</p>
+        <Button onClick={fetchCompanyData} className="bg-gray-800">
+          <RefreshCw className="w-4 h-4 mr-2" /> Retry
+        </Button>
       </div>
     );
   }
@@ -311,7 +382,7 @@ const handleLogAttendance = async () => {
       </motion.div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
         <Card className="border-0 shadow-md">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
@@ -381,6 +452,20 @@ const handleLogAttendance = async () => {
             </div>
           </CardContent>
         </Card>
+        
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Pending Reports</p>
+                <p className="text-2xl font-bold text-red-600">{pendingReports}</p>
+              </div>
+              <div className="w-11 h-11 bg-red-100 rounded-xl flex items-center justify-center">
+                <FileText className="w-5 h-5 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Notices Section */}
@@ -435,69 +520,72 @@ const handleLogAttendance = async () => {
           </TabsTrigger>
         </TabsList>
 
-<TabsContent value="reports">
-  <Card className="border-0 shadow-md">
-    <CardHeader>
-      <CardTitle>Student Daily Reports</CardTitle>
-      <CardDescription>Review and verify reports submitted by your interns</CardDescription>
-    </CardHeader>
-    <CardContent>
-      {reports.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>No reports submitted yet</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {reports.map(report => (
-            <div key={report.id} className="p-4 bg-gray-50 rounded-xl border">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-semibold">{report.title}</h4>
-                    <Badge className={
-                      report.status === 'approved' ? 'bg-green-100 text-green-700' :
-                      report.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }>
-                      {report.status || 'pending'}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-600">{report.description}</p>
-                  <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
-                    <span>Student: {report.student_name || 'Student'}</span>
-                    <span>Date: {report.date}</span>
-                    <span>Hours: {report.hours}h</span>
-                    {report.tasks && <span>Tasks: {report.tasks}</span>}
-                  </div>
+        {/* REPORTS TAB */}
+        <TabsContent value="reports">
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle>Student Daily Reports</CardTitle>
+              <CardDescription>Review and verify reports submitted by your interns</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {reports.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>No reports submitted yet</p>
                 </div>
-                {report.status === 'pending' && (
-                  <div className="flex gap-2 ml-4">
-                    <Button 
-                      size="sm" 
-                      className="bg-green-600 hover:bg-green-700"
-                      onClick={() => handleVerifyReport(report.id, 'approved')}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1" /> Approve
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="border-red-500 text-red-600 hover:bg-red-50"
-                      onClick={() => handleVerifyReport(report.id, 'rejected')}
-                    >
-                      <X className="w-4 h-4 mr-1" /> Reject
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </CardContent>
-  </Card>
-</TabsContent>
+              ) : (
+                <div className="space-y-4">
+                  {reports.map(report => (
+                    <div key={report.id} className="p-4 bg-gray-50 rounded-xl border">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold">{report.title}</h4>
+                            <Badge className={
+                              report.status === 'approved' ? 'bg-green-100 text-green-700' :
+                              report.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                              'bg-yellow-100 text-yellow-700'
+                            }>
+                              {report.status || 'pending'}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-600">{report.description}</p>
+                          <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
+                            <span>Student: {report.student_name || 'Student'}</span>
+                            <span>Date: {report.date}</span>
+                            <span>Hours: {report.hours}h</span>
+                            {report.tasks && <span>Tasks: {report.tasks}</span>}
+                          </div>
+                        </div>
+                        {report.status === 'pending' && (
+                          <div className="flex gap-2 ml-4">
+                            <Button 
+                              size="sm" 
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => handleVerifyReport(report.id, 'approved')}
+                              disabled={isVerifyingReport}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" /> Approve
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="border-red-500 text-red-600 hover:bg-red-50"
+                              onClick={() => handleVerifyReport(report.id, 'rejected')}
+                              disabled={isVerifyingReport}
+                            >
+                              <X className="w-4 h-4 mr-1" /> Reject
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* JOBS TAB */}
         <TabsContent value="jobs">
@@ -591,7 +679,10 @@ const handleLogAttendance = async () => {
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsJobDialogOpen(false)}>Cancel</Button>
-                      <Button className="bg-gray-800" onClick={handleCreateJob}>Post Job</Button>
+                      <Button className="bg-gray-800" onClick={handleCreateJob} disabled={isCreatingJob}>
+                        {isCreatingJob ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                        {isCreatingJob ? 'Posting...' : 'Post Job'}
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -640,6 +731,7 @@ const handleLogAttendance = async () => {
                           variant="ghost" 
                           onClick={() => handleDeleteJob(job.id, job.title)} 
                           className="text-red-500 hover:text-red-700"
+                          disabled={isDeletingJob}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -690,7 +782,7 @@ const handleLogAttendance = async () => {
                           </Badge>
                           <Button size="sm" variant="ghost">
                             <Eye className="w-4 h-4" />
-                          </Button>
+          </Button>
                         </div>
                       </div>
                     </div>
@@ -704,7 +796,6 @@ const handleLogAttendance = async () => {
         {/* ATTENDANCE TAB */}
         <TabsContent value="attendance">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Log Attendance Form */}
             <Card className="border-0 shadow-md">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -802,14 +893,14 @@ const handleLogAttendance = async () => {
                 <Button 
                   onClick={handleLogAttendance} 
                   className="w-full bg-gray-800 hover:bg-gray-700"
-                  disabled={interns.length === 0}
+                  disabled={interns.length === 0 || isLoggingAttendance}
                 >
-                  Log Attendance
+                  {isLoggingAttendance ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  {isLoggingAttendance ? 'Logging...' : 'Log Attendance'}
                 </Button>
               </CardContent>
             </Card>
 
-            {/* Recent Attendance Logs */}
             <Card className="border-0 shadow-md">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -960,9 +1051,10 @@ const handleLogAttendance = async () => {
                 <Button 
                   className="bg-gray-800"
                   onClick={() => handleUpdateApplicationStatus(selectedApplication.id, applicationStatus)}
-                  disabled={!applicationStatus}
+                  disabled={!applicationStatus || isUpdatingStatus}
                 >
-                  Update Status
+                  {isUpdatingStatus ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  {isUpdatingStatus ? 'Updating...' : 'Update Status'}
                 </Button>
               </DialogFooter>
             </div>
