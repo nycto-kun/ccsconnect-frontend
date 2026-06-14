@@ -37,7 +37,6 @@ export const SharedDataProvider = ({ children }) => {
   
   const abortControllerRef = useRef(null);
   const isFetchingRef = useRef(false);
-  const initialFetchDone = useRef(false);
 
   // Fetch all student data
   const fetchStudentData = useCallback(async () => {
@@ -278,7 +277,7 @@ export const SharedDataProvider = ({ children }) => {
     }
   }, [user]);
 
-  // Use effect to trigger data fetch based on role
+  // Use effect to trigger data fetch based on role (no blocking flag)
   useEffect(() => {
     console.log('SharedDataContext useEffect triggered. User:', user?.id, 'Role:', user?.role);
     
@@ -288,35 +287,28 @@ export const SharedDataProvider = ({ children }) => {
       return;
     }
     
-    // Prevent multiple initial fetches
-    if (initialFetchDone.current) {
-      console.log('Initial fetch already done, skipping');
-      return;
-    }
-    
+    // Fetch data based on role (no blocking flag)
     if (user.role === 'student') {
       console.log('Triggering student data fetch');
       fetchStudentData();
-      initialFetchDone.current = true;
     } else if (user.role === 'admin') {
       console.log('Triggering admin data fetch');
       fetchAdminData();
-      initialFetchDone.current = true;
     } else if (user.role === 'company') {
       console.log('Triggering company data fetch');
       fetchCompanyData();
-      initialFetchDone.current = true;
     } else {
       console.log('Unknown role, no data fetch:', user.role);
       setLoading(false);
     }
     
+    // Cleanup function to abort pending requests
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [user, fetchStudentData, fetchAdminData, fetchCompanyData]);
+  }, [user]); // Only depend on user, not the fetch functions
 
   // Helper functions
   const getStudentAttendance = useCallback((studentId) => {
@@ -336,10 +328,16 @@ export const SharedDataProvider = ({ children }) => {
 
   const refreshData = useCallback(() => {
     console.log('Manual refresh triggered');
-    initialFetchDone.current = false;
-    if (user?.role === 'student') fetchStudentData();
-    else if (user?.role === 'admin') fetchAdminData();
-    else if (user?.role === 'company') fetchCompanyData();
+    // Reset isFetching flag to allow new fetch
+    isFetchingRef.current = false;
+    
+    if (user?.role === 'student') {
+      fetchStudentData();
+    } else if (user?.role === 'admin') {
+      fetchAdminData();
+    } else if (user?.role === 'company') {
+      fetchCompanyData();
+    }
   }, [user, fetchStudentData, fetchAdminData, fetchCompanyData]);
 
   const value = {
