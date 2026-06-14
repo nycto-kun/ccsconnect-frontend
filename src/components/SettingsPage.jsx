@@ -9,6 +9,8 @@ import { Switch } from './ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Separator } from './ui/separator';
+import { Badge } from './ui/badge';
+import { X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -20,6 +22,7 @@ export const SettingsPage = () => {
   const { theme, setTheme, fontSize, setFontSize } = useTheme();
   const [loading, setLoading] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [newSkill, setNewSkill] = useState('');
   
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -30,6 +33,7 @@ export const SettingsPage = () => {
     github: '',
     linkedin: '',
     portfolio: '',
+    skills: [],
   });
   
   // Notification preferences
@@ -62,6 +66,7 @@ export const SettingsPage = () => {
           github: userData.github || '',
           linkedin: userData.linkedin || '',
           portfolio: userData.portfolio || '',
+          skills: userData.skills || [],
         });
       } catch (error) {
         console.error('Failed to fetch user data:', error);
@@ -71,15 +76,55 @@ export const SettingsPage = () => {
     fetchUserData();
   }, []);
 
+  // Add skill
+  const handleAddSkill = () => {
+    if (newSkill.trim() && !profileForm.skills.includes(newSkill.trim())) {
+      setProfileForm({
+        ...profileForm,
+        skills: [...profileForm.skills, newSkill.trim()]
+      });
+      setNewSkill('');
+    }
+  };
+
+  // Remove skill
+  const handleRemoveSkill = (skillToRemove) => {
+    setProfileForm({
+      ...profileForm,
+      skills: profileForm.skills.filter(skill => skill !== skillToRemove)
+    });
+  };
+
+  // Update AI embedding when skills change
+  const updateAIEmbedding = async (skills) => {
+    if (!skills || skills.length === 0) return;
+    
+    try {
+      await api.post('/ai/student-embedding', {
+        skills: skills,
+        resume_text: ''
+      });
+      console.log('AI embedding updated with skills:', skills);
+    } catch (error) {
+      console.error('Failed to update AI embedding:', error);
+    }
+  };
+
   // Save profile changes
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
       const response = await api.put('/auth/profile', profileForm);
       toast.success('Profile updated successfully');
+      
+      // Update AI embedding if skills exist
+      if (profileForm.skills && profileForm.skills.length > 0) {
+        await updateAIEmbedding(profileForm.skills);
+      }
+      
       // Refresh user data
       const userResponse = await api.get('/auth/me');
-      // Update auth context if needed
+      
     } catch (error) {
       console.error('Failed to save profile:', error);
       toast.error(error.response?.data?.detail || 'Failed to update profile');
@@ -92,7 +137,6 @@ export const SettingsPage = () => {
   const handleSaveNotifications = async () => {
     setLoading(true);
     try {
-      // Save to backend (you may need to create this endpoint)
       await api.put('/auth/preferences', { notifications });
       toast.success('Notification preferences saved');
     } catch (error) {
@@ -156,7 +200,7 @@ export const SettingsPage = () => {
                 <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                   <User className="w-5 h-5 text-gray-500" /> Profile Information
                 </CardTitle>
-                <CardDescription className="dark:text-gray-400">Update your personal details</CardDescription>
+                <CardDescription className="dark:text-gray-400">Update your personal details and skills for better job matching</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -222,6 +266,38 @@ export const SettingsPage = () => {
                       placeholder="Tell us about yourself..."
                       className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white dark:bg-gray-700 dark:text-white"
                     />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Skills (for AI job matching)</Label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {profileForm.skills.map((skill, index) => (
+                        <Badge key={index} variant="secondary" className="text-sm py-1.5 px-3">
+                          {skill}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSkill(skill)}
+                            className="ml-2 hover:text-red-500"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newSkill}
+                        onChange={e => setNewSkill(e.target.value)}
+                        placeholder="Add a skill (e.g., Python, React, JavaScript)"
+                        className="flex-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
+                      />
+                      <Button type="button" onClick={handleAddSkill} variant="outline">
+                        <Plus className="w-4 h-4" /> Add
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Skills help our AI match you with relevant job opportunities
+                    </p>
                   </div>
                 </div>
                 <div className="flex justify-end">

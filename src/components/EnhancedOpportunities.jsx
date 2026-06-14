@@ -25,6 +25,22 @@ export const EnhancedOpportunities = () => {
   const [bookmarks, setBookmarks] = useState(new Set());
   const [appliedJobs, setAppliedJobs] = useState(new Set());
 
+  // Fetch AI recommendations for student
+  const fetchAIRecommendations = async () => {
+    if (!user || user.role !== 'student') return [];
+    
+    try {
+      const response = await api.get(`/ai/recommendations/${user.id}`);
+      if (response.data && response.data.length > 0) {
+        console.log('AI Recommendations found:', response.data.length);
+        return response.data;
+      }
+    } catch (error) {
+      console.error('Failed to fetch AI recommendations:', error);
+    }
+    return [];
+  };
+
   // Fetch company name for a job
   const fetchCompanyName = async (companyId) => {
     if (!companyId) return 'Company';
@@ -32,89 +48,55 @@ export const EnhancedOpportunities = () => {
       const response = await api.get(`/companies/${companyId}/`);
       return response.data?.name || 'Company';
     } catch (error) {
-      console.error('Failed to fetch company name:', error);
       return 'Company';
     }
-  };
-
-  // Enrich jobs with company names
-  const enrichJobsWithCompanyNames = async (jobs) => {
-    const enrichedJobs = await Promise.all(
-      jobs.map(async (job) => {
-        if (!job.company_name) {
-          job.company_name = await fetchCompanyName(job.company_id);
-        }
-        return {
-          ...job,
-          companyLogo: job.company_name?.charAt(0) || 'C',
-          skills: job.requirements || [],
-        };
-      })
-    );
-    return enrichedJobs;
   };
 
   const fetchOpportunities = async () => {
     try {
       setLoading(true);
-      let data = [];
       
-      // First, get all active jobs
-      const jobsRes = await api.get('/jobs/?status=active');
-      let jobs = jobsRes.data || [];
-      
-      // Enrich jobs with company names
-      jobs = await enrichJobsWithCompanyNames(jobs);
-      
+      // Try AI recommendations first for students
       if (user?.role === 'student') {
-        // Try to get AI recommendations
-        try {
-          const recRes = await api.get(`/ai/recommendations/${user.id}`);
-          if (recRes.data && recRes.data.length > 0) {
-            // Enrich recommended jobs with company names
-            const recommendedJobs = await Promise.all(
-              recRes.data.map(async (item) => {
-                const companyName = await fetchCompanyName(item.job.company_id);
-                return {
-                  ...item.job,
-                  matchScore: item.match_score,
-                  isRecommended: true,
-                  company_name: companyName,
-                  companyLogo: companyName?.charAt(0) || 'C',
-                  type: item.job.type || 'internship',
-                  applicants: item.job.applicants_count || 0,
-                  views: item.job.views || 0,
-                  skills: item.job.requirements || [],
-                };
-              })
-            );
-            data = recommendedJobs;
-          } else {
-            // Fallback to regular jobs
-            data = jobs.map(job => ({
-              ...job,
-              isRecommended: false,
-              matchScore: 0,
-            }));
-          }
-        } catch (recError) {
-          console.log('AI recommendations not available, using regular jobs');
-          data = jobs.map(job => ({
-            ...job,
-            isRecommended: false,
-            matchScore: 0,
+        const aiRecs = await fetchAIRecommendations();
+        if (aiRecs && aiRecs.length > 0) {
+          const data = await Promise.all(aiRecs.map(async (item) => {
+            const companyName = await fetchCompanyName(item.job.company_id);
+            return {
+              ...item.job,
+              matchScore: item.match_score,
+              isRecommended: true,
+              company_name: companyName,
+              companyLogo: companyName?.charAt(0) || 'C',
+              type: item.job.type || 'internship',
+              applicants: item.job.applicants_count || 0,
+              views: item.job.views || 0,
+              skills: item.job.requirements || [],
+            };
           }));
+          setOpportunities(data);
+          return;
         }
-      } else {
-        // For non-students, just show all jobs
-        data = jobs.map(job => ({
+      }
+      
+      // Fallback to regular jobs
+      const jobsRes = await api.get('/jobs/?status=active');
+      const jobs = jobsRes.data || [];
+      
+      const data = await Promise.all(jobs.map(async (job) => {
+        const companyName = await fetchCompanyName(job.company_id);
+        return {
           ...job,
           isRecommended: false,
           matchScore: 0,
-        }));
-      }
-      
+          company_name: companyName,
+          companyLogo: companyName?.charAt(0) || 'C',
+          type: job.type || 'internship',
+          skills: job.requirements || [],
+        };
+      }));
       setOpportunities(data);
+      
     } catch (error) {
       console.error('Failed to fetch opportunities:', error);
       toast.error('Failed to load opportunities');
@@ -338,7 +320,7 @@ export const EnhancedOpportunities = () => {
                             <h3 className="text-xl font-bold group-hover:text-gray-600 transition-colors">
                               {opp.title}
                             </h3>
-                            <p className="text-gray-600 dark:text-gray-400 font-medium">{opp.company_name || 'Company'}</p>
+                            <p className="text-gray-600 dark:text-gray-400 font-medium">{opp.company_name}</p>
                           </div>
                           <div className="flex items-center gap-2">
                             {opp.isRecommended && (

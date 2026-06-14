@@ -220,7 +220,7 @@ export const SharedDataProvider = ({ children }) => {
       console.log('Attendance result:', attResult.data?.length || 0, 'records found');
       
       console.log('Fetching assignments (interns)...');
-      const assignmentsResult = await api.get(`/assignments/?company_id=${queryCompanyId}`);
+      const assignmentsResult = await api.get(`/assignments/company/interns`);
       console.log('Assignments result:', assignmentsResult.data?.length || 0, 'assignments found');
       
       console.log('Fetching reports...');
