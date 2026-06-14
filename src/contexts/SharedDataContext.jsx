@@ -110,7 +110,8 @@ export const SharedDataProvider = ({ children }) => {
         api.get('/notices/'),
         api.get('/jobs/'),
         api.get('/applications/'),
-        api.get('/admin/users/?role=student')
+        api.get('/admin/users/?role=student'),
+        api.get('/admin/users/?role=company')
       ]);
       
       if (!controller.signal.aborted) {
