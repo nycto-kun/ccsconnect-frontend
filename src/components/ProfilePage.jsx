@@ -13,7 +13,6 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
@@ -30,11 +29,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
   
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [showCoverDialog, setShowCoverDialog] = useState(false);
-  const [showAvatarDialog, setShowAvatarDialog] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [uploadType, setUploadType] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [updatingAI, setUpdatingAI] = useState(false);
   
   const [profileData, setProfileData] = useState({
     full_name: '',
@@ -118,6 +113,32 @@ export const ProfilePage = ({ userRole: propRole }) => {
     if (user) fetchProfile();
   }, [user, userRole]);
 
+  // Generate AI embedding from skills
+  const generateAIEmbedding = async (skills) => {
+    if (!skills || skills.length === 0) {
+      console.log('No skills to generate embedding');
+      return false;
+    }
+    
+    try {
+      setUpdatingAI(true);
+      console.log('Generating AI embedding for skills:', skills);
+      const response = await api.post('/ai/student-embedding', {
+        skills: skills,
+        resume_text: ''
+      });
+      console.log('AI embedding response:', response.data);
+      toast.success('AI matching updated!');
+      return true;
+    } catch (error) {
+      console.error('Failed to generate AI embedding:', error);
+      toast.error('Failed to update AI matching');
+      return false;
+    } finally {
+      setUpdatingAI(false);
+    }
+  };
+
   // Trigger resume file input
   const handleResumeButtonClick = () => {
     resumeInputRef.current?.click();
@@ -146,12 +167,14 @@ export const ProfilePage = ({ userRole: propRole }) => {
       toast.dismiss();
       toast.success('Resume uploaded successfully');
       
-      if (profileData.skills && profileData.skills.length > 0) {
-        await api.post('/ai/student-embedding', {
-          skills: profileData.skills,
-          resume_text: ''
-        });
+      // Generate AI embedding after resume upload
+      const currentSkills = profileData.skills || [];
+      if (currentSkills.length > 0) {
+        await generateAIEmbedding(currentSkills);
+      } else {
+        toast.info('Add skills in Settings for better job matching');
       }
+      
     } catch (err) {
       toast.dismiss();
       console.error('Upload failed:', err);
@@ -160,11 +183,6 @@ export const ProfilePage = ({ userRole: propRole }) => {
       setUploading(false);
       if (resumeInputRef.current) resumeInputRef.current.value = '';
     }
-  };
-
-  // Trigger avatar file input
-  const handleAvatarButtonClick = () => {
-    avatarInputRef.current?.click();
   };
 
   // Handle avatar file selection
@@ -200,11 +218,6 @@ export const ProfilePage = ({ userRole: propRole }) => {
     }
   };
 
-  // Trigger cover file input
-  const handleCoverButtonClick = () => {
-    coverInputRef.current?.click();
-  };
-
   // Handle cover file selection
   const handleCoverFileChange = async (e) => {
     const file = e.target.files[0];
@@ -236,6 +249,17 @@ export const ProfilePage = ({ userRole: propRole }) => {
       setUploading(false);
       if (coverInputRef.current) coverInputRef.current.value = '';
     }
+  };
+
+  // Manual AI matching update
+  const handleUpdateAIMatching = async () => {
+    const currentSkills = profileData.skills || [];
+    if (currentSkills.length === 0) {
+      toast.error('Add skills in Settings first');
+      return;
+    }
+    
+    await generateAIEmbedding(currentSkills);
   };
 
   const handleEditProfile = () => {
@@ -300,7 +324,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-gray-900/30 to-gray-900/60" />
         <button 
-          onClick={handleCoverButtonClick}
+          onClick={() => coverInputRef.current?.click()}
           disabled={uploading}
           className="absolute top-4 right-4 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-all"
         >
@@ -328,7 +352,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
                 )}
               </div>
               <button 
-                onClick={handleAvatarButtonClick}
+                onClick={() => avatarInputRef.current?.click()}
                 disabled={uploading}
                 className="absolute -bottom-2 -right-2 w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center shadow-md hover:bg-gray-600 transition-colors"
               >
@@ -463,7 +487,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
               </CardContent>
             </Card>
 
-            {/* Resume Upload - WORKING WITH useRef */}
+            {/* Resume Upload */}
             {userRole === 'student' && (
               <Card className="border-0 shadow-md dark:bg-gray-800">
                 <CardHeader>
@@ -480,7 +504,7 @@ export const ProfilePage = ({ userRole: propRole }) => {
                         </div>
                         <p className="text-sm text-green-600 dark:text-green-400 mb-2">✓ Resume uploaded</p>
                         <p className="text-xs text-gray-500 mb-4">Helps AI match you with relevant jobs</p>
-                        <div className="flex gap-2 justify-center">
+                        <div className="flex gap-2 justify-center flex-wrap">
                           <Button 
                             variant="outline" 
                             size="sm" 
@@ -521,6 +545,50 @@ export const ProfilePage = ({ userRole: propRole }) => {
                       </div>
                     )}
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* AI Matching Status */}
+            {userRole === 'student' && (
+              <Card className="border-0 shadow-md dark:bg-gray-800">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2 dark:text-gray-100">
+                    <TrendingUp className="w-5 h-5 text-gray-500" /> AI Job Matching
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Skills:</span>
+                    <Badge className={profileData.skills?.length > 0 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>
+                      {profileData.skills?.length || 0} skills
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Resume:</span>
+                    <Badge className={profileData.resume_url ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>
+                      {profileData.resume_url ? 'Uploaded' : 'Not uploaded'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">AI Status:</span>
+                    <Badge className={(profileData.skills?.length > 0 || profileData.resume_url) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                      {(profileData.skills?.length > 0 || profileData.resume_url) ? 'Ready' : 'Incomplete'}
+                    </Badge>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full mt-2"
+                    onClick={handleUpdateAIMatching}
+                    disabled={updatingAI || (profileData.skills?.length === 0 && !profileData.resume_url)}
+                  >
+                    {updatingAI ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <TrendingUp className="w-4 h-4 mr-2" />}
+                    {updatingAI ? 'Updating...' : 'Update AI Matching'}
+                  </Button>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Add skills and upload resume for personalized job recommendations
+                  </p>
                 </CardContent>
               </Card>
             )}
