@@ -52,15 +52,19 @@ export const EnhancedOpportunities = () => {
     }
   };
 
-  const fetchOpportunities = async () => {
-    try {
-      setLoading(true);
-      
-      // Try AI recommendations first for students
-      if (user?.role === 'student') {
-        const aiRecs = await fetchAIRecommendations();
-        if (aiRecs && aiRecs.length > 0) {
-          const data = await Promise.all(aiRecs.map(async (item) => {
+const fetchOpportunities = async () => {
+  try {
+    setLoading(true);
+    
+    // For students, try to get AI recommendations
+    if (user?.role === 'student') {
+      try {
+        const recRes = await api.get(`/ai/recommendations/${user.id}`);
+        console.log('AI Recommendations API response:', recRes.data);
+        
+        if (recRes.data && recRes.data.length > 0) {
+          // Process recommendations
+          const data = await Promise.all(recRes.data.map(async (item) => {
             const companyName = await fetchCompanyName(item.job.company_id);
             return {
               ...item.job,
@@ -75,35 +79,41 @@ export const EnhancedOpportunities = () => {
             };
           }));
           setOpportunities(data);
+          setLoading(false);
           return;
+        } else {
+          console.log('No AI recommendations found, using regular jobs');
         }
+      } catch (recError) {
+        console.error('AI recommendations failed:', recError);
       }
-      
-      // Fallback to regular jobs
-      const jobsRes = await api.get('/jobs/?status=active');
-      const jobs = jobsRes.data || [];
-      
-      const data = await Promise.all(jobs.map(async (job) => {
-        const companyName = await fetchCompanyName(job.company_id);
-        return {
-          ...job,
-          isRecommended: false,
-          matchScore: 0,
-          company_name: companyName,
-          companyLogo: companyName?.charAt(0) || 'C',
-          type: job.type || 'internship',
-          skills: job.requirements || [],
-        };
-      }));
-      setOpportunities(data);
-      
-    } catch (error) {
-      console.error('Failed to fetch opportunities:', error);
-      toast.error('Failed to load opportunities');
-    } finally {
-      setLoading(false);
     }
-  };
+    
+    // Fallback to regular jobs
+    const jobsRes = await api.get('/jobs/?status=active');
+    const jobs = jobsRes.data || [];
+    
+    const data = await Promise.all(jobs.map(async (job) => {
+      const companyName = await fetchCompanyName(job.company_id);
+      return {
+        ...job,
+        isRecommended: false,
+        matchScore: 0,
+        company_name: companyName,
+        companyLogo: companyName?.charAt(0) || 'C',
+        type: job.type || 'internship',
+        skills: job.requirements || [],
+      };
+    }));
+    setOpportunities(data);
+    
+  } catch (error) {
+    console.error('Failed to fetch opportunities:', error);
+    toast.error('Failed to load opportunities');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchBookmarks = async () => {
     if (user?.role === 'student') {
@@ -183,16 +193,18 @@ export const EnhancedOpportunities = () => {
     }
   };
 
-  const getFilteredOpportunities = () => {
-    let filtered = [...opportunities];
-    
-    if (activeTab === 'recommended') {
-      filtered = filtered.filter(opp => opp.isRecommended);
-    } else if (activeTab === 'bookmarked') {
-      filtered = filtered.filter(opp => bookmarks.has(opp.id));
-    } else if (activeTab !== 'all') {
-      filtered = filtered.filter(opp => opp.type === activeTab);
-    }
+const getFilteredOpportunities = () => {
+  let filtered = [...opportunities];
+  
+  if (activeTab === 'recommended') {
+    // Only show jobs that have isRecommended = true AND matchScore > 0
+    filtered = filtered.filter(opp => opp.isRecommended === true && opp.matchScore > 0);
+    console.log('Recommended tab - showing:', filtered.length, 'jobs with scores:', filtered.map(o => ({ title: o.title, score: o.matchScore })));
+  } else if (activeTab === 'bookmarked') {
+    filtered = filtered.filter(opp => bookmarks.has(opp.id));
+  } else if (activeTab !== 'all') {
+    filtered = filtered.filter(opp => opp.type === activeTab);
+  }
     
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
