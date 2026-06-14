@@ -57,18 +57,6 @@ export const CompanyDashboard = () => {
   console.log('CompanyDashboard - loading:', loading);
   console.log('CompanyDashboard - interns:', interns);
   console.log('CompanyDashboard - error:', error);
-  
-const { 
-    jobs: jobPosts, 
-    applications, 
-    attendance, 
-    reports, 
-    interns, 
-    notices: sharedNotices,
-    loading,
-    refreshData,
-    error
-  } = useSharedData();
 
     console.log('🔴 SharedDataContext values:', {
     loading,
