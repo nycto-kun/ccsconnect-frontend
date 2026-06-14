@@ -52,22 +52,14 @@ export const CompanyDashboard = () => {
     error
   } = useSharedData();
 
-  console.log('🔴 CompanyDashboard RENDERING');
-  console.log('🔴 User:', user?.id, user?.role);
   console.log('CompanyDashboard - loading:', loading);
   console.log('CompanyDashboard - interns:', interns);
   console.log('CompanyDashboard - error:', error);
-
-    console.log('🔴 SharedDataContext values:', {
-    loading,
-    internsCount: interns?.length,
-    jobsCount: jobPosts?.length,
-    error
-  });
-
+  
   // Local state for UI only (not data fetching)
   const [notices, setNotices] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('jobs');
   
   // Dialog states
   const [isJobDialogOpen, setIsJobDialogOpen] = useState(false);
@@ -96,7 +88,6 @@ export const CompanyDashboard = () => {
   });
   
   const [applicationStatus, setApplicationStatus] = useState('');
-  const [activeTab, setActiveTab] = useState('jobs');
   
   // Loading states for actions
   const [isCreatingJob, setIsCreatingJob] = useState(false);
@@ -105,14 +96,23 @@ export const CompanyDashboard = () => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isLoggingAttendance, setIsLoggingAttendance] = useState(false);
 
+  // Refresh data when switching to interns tab
+  useEffect(() => {
+    if (activeTab === 'interns') {
+      console.log('🔄 Interns tab selected - fetching fresh data...');
+      refreshData();
+    }
+  }, [activeTab, refreshData]);
+
   // Combine notices
   const allNotices = sharedNotices.length > 0 ? sharedNotices : notices;
 
-  // Handle refresh
+  // Handle refresh button
   const handleRefresh = async () => {
     setRefreshing(true);
     await refreshData();
     setRefreshing(false);
+    toast.success('Dashboard refreshed');
   };
 
   // Create new job
@@ -875,16 +875,30 @@ export const CompanyDashboard = () => {
           </div>
         </TabsContent>
 
-        {/* INTERNS TAB */}
+        {/* INTERNS TAB - Now refreshes when clicked */}
         <TabsContent value="interns">
           <Card className="border-0 shadow-md">
             <CardHeader>
-              <CardTitle>Assigned Interns</CardTitle>
-              <CardDescription>Track your interns' progress and attendance</CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Assigned Interns</CardTitle>
+                  <CardDescription>Track your interns' progress and attendance</CardDescription>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => {
+                    console.log('Manual refresh interns button clicked');
+                    refreshData();
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-                 {/* DEBUG: Add this line to see if interns data is available */}
-      {console.log('Rendering Interns tab, interns count:', interns?.length)}
               {interns.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />

@@ -26,11 +26,18 @@ export const SharedDataProvider = ({ children }) => {
     applicationsSent: 0,
     interviewsScheduled: 0,
     offersReceived: 0,
-    profileViews: 0
+    profileViews: 0,
+    activeJobs: 0,
+    totalApplications: 0,
+    pendingApplications: 0,
+    activeInterns: 0,
+    totalAttendance: 0,
+    pendingReports: 0
   });
   
   const abortControllerRef = useRef(null);
   const isFetchingRef = useRef(false);
+  const initialFetchDone = useRef(false);
 
   // Fetch all student data
   const fetchStudentData = useCallback(async () => {
@@ -72,7 +79,13 @@ export const SharedDataProvider = ({ children }) => {
           applicationsSent: apps.length,
           interviewsScheduled: apps.filter(a => a.status === 'interview').length,
           offersReceived: apps.filter(a => a.status === 'accepted').length,
-          profileViews: apps.reduce((sum, a) => sum + (a.views || 0), 0)
+          profileViews: apps.reduce((sum, a) => sum + (a.views || 0), 0),
+          activeJobs: 0,
+          totalApplications: 0,
+          pendingApplications: 0,
+          activeInterns: 0,
+          totalAttendance: 0,
+          pendingReports: 0
         });
       }
     } catch (error) {
@@ -110,17 +123,15 @@ export const SharedDataProvider = ({ children }) => {
         api.get('/notices/'),
         api.get('/jobs/'),
         api.get('/applications/'),
-        api.get('/admin/users/?role=student'),
-        api.get('/admin/users/?role=company')
+        api.get('/admin/users/?role=student')
       ]);
       
       if (!controller.signal.aborted) {
-        if (statsResult.status === 'fulfilled') setStats(statsResult.value.data);
+        if (statsResult.status === 'fulfilled') setStats(prev => ({ ...prev, ...statsResult.value.data }));
         setNotices(noticesResult.status === 'fulfilled' ? noticesResult.value.data || [] : []);
         setJobs(jobsResult.status === 'fulfilled' ? jobsResult.value.data || [] : []);
         setApplications(appsResult.status === 'fulfilled' ? appsResult.value.data || [] : []);
         
-        // For admin, interns are the students
         if (usersResult.status === 'fulfilled') {
           setInterns(usersResult.value.data || []);
         }
@@ -136,7 +147,7 @@ export const SharedDataProvider = ({ children }) => {
     }
   }, [user]);
 
-  // Fetch company data - FIXED to actually make requests
+  // Fetch company data
   const fetchCompanyData = useCallback(async () => {
     console.log('fetchCompanyData called, user role:', user?.role);
     
@@ -209,7 +220,7 @@ export const SharedDataProvider = ({ children }) => {
       const attResult = await api.get(`/attendance/?company_id=${queryCompanyId}`);
       console.log('Attendance result:', attResult.data?.length || 0, 'records found');
       
-      console.log('Fetching assignments...');
+      console.log('Fetching assignments (interns)...');
       const assignmentsResult = await api.get(`/assignments/?company_id=${queryCompanyId}`);
       console.log('Assignments result:', assignmentsResult.data?.length || 0, 'assignments found');
       
@@ -230,24 +241,28 @@ export const SharedDataProvider = ({ children }) => {
         setNotices(noticesResult.data || []);
         
         // Calculate stats
-        const activeJobs = (jobsResult.data || []).filter(j => j.status === 'active').length;
-        const totalApplications = (appsResult.data || []).length;
-        const pendingApplications = (appsResult.data || []).filter(a => a.status === 'pending').length;
-        const activeInterns = (assignmentsResult.data || []).filter(i => i.status === 'active').length;
-        const totalAttendance = (attResult.data || []).length;
-        const pendingReports = (reportsResult.data || []).filter(r => r.status === 'pending').length;
+        const activeJobsCount = (jobsResult.data || []).filter(j => j.status === 'active').length;
+        const totalApps = (appsResult.data || []).length;
+        const pendingApps = (appsResult.data || []).filter(a => a.status === 'pending').length;
+        const activeInternsCount = (assignmentsResult.data || []).filter(i => i.status === 'active').length;
+        const totalAttendanceCount = (attResult.data || []).length;
+        const pendingReportsCount = (reportsResult.data || []).filter(r => r.status === 'pending').length;
         
         setStats({
-          activeJobs,
-          totalApplications,
-          pendingApplications,
-          activeInterns,
-          totalAttendance,
-          pendingReports,
-          applicationsSent: totalApplications,
+          applicationsSent: totalApps,
           interviewsScheduled: (appsResult.data || []).filter(a => a.status === 'interview').length,
-          offersReceived: (appsResult.data || []).filter(a => a.status === 'accepted').length
+          offersReceived: (appsResult.data || []).filter(a => a.status === 'accepted').length,
+          profileViews: 0,
+          activeJobs: activeJobsCount,
+          totalApplications: totalApps,
+          pendingApplications: pendingApps,
+          activeInterns: activeInternsCount,
+          totalAttendance: totalAttendanceCount,
+          pendingReports: pendingReportsCount
         });
+        
+        console.log('=== fetchCompanyData SUCCESS ===');
+        console.log('Interns set to:', assignmentsResult.data?.length || 0);
       }
     } catch (error) {
       if (error.name !== 'AbortError') {
@@ -273,15 +288,24 @@ export const SharedDataProvider = ({ children }) => {
       return;
     }
     
+    // Prevent multiple initial fetches
+    if (initialFetchDone.current) {
+      console.log('Initial fetch already done, skipping');
+      return;
+    }
+    
     if (user.role === 'student') {
       console.log('Triggering student data fetch');
       fetchStudentData();
+      initialFetchDone.current = true;
     } else if (user.role === 'admin') {
       console.log('Triggering admin data fetch');
       fetchAdminData();
+      initialFetchDone.current = true;
     } else if (user.role === 'company') {
       console.log('Triggering company data fetch');
       fetchCompanyData();
+      initialFetchDone.current = true;
     } else {
       console.log('Unknown role, no data fetch:', user.role);
       setLoading(false);
@@ -312,6 +336,7 @@ export const SharedDataProvider = ({ children }) => {
 
   const refreshData = useCallback(() => {
     console.log('Manual refresh triggered');
+    initialFetchDone.current = false;
     if (user?.role === 'student') fetchStudentData();
     else if (user?.role === 'admin') fetchAdminData();
     else if (user?.role === 'company') fetchCompanyData();
