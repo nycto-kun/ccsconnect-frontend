@@ -23,10 +23,27 @@ api.interceptors.request.use(
     
     // DO NOT add trailing slashes to these endpoints
     const skipTrailingSlash = [
+      // Auth endpoints
       '/auth/login', '/auth/me', '/auth/register', '/auth/forgot-password',
-      '/auth/change-password', '/admin/stats', '/ai/recommendations',
-      '/upload/resume', '/upload/profile-image', '/chat/conversations',
-      '/ai/student-embedding', '/ai/job-embedding'
+      '/auth/change-password', '/auth/profile',
+      
+      // Admin endpoints
+      '/admin/stats', '/admin/pending-companies',
+      
+      // AI endpoints
+      '/ai/recommendations', '/ai/student-embedding', '/ai/job-embedding',
+      
+      // Upload endpoints
+      '/upload/resume', '/upload/profile-image',
+      
+      // Chat endpoints
+      '/chat/conversations',
+      
+      // Assignments endpoints
+      '/assignments/company/interns',
+      
+      // API docs
+      '/docs', '/redoc', '/openapi.json'
     ];
     
     const shouldSkip = skipTrailingSlash.some(endpoint => config.url?.startsWith(endpoint));
