@@ -280,7 +280,7 @@ export const CompanyDashboard = () => {
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
       {/* Header */}
-      
+
       <motion.div 
   initial={{ opacity: 0, y: 20 }} 
   animate={{ opacity: 1, y: 0 }} 
@@ -326,36 +326,6 @@ export const CompanyDashboard = () => {
     </div>
   </div>
 </motion.div>
-      
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        transition={{ duration: 0.5 }} 
-        className="mb-10"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center">
-              <Briefcase className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Company Dashboard</h1>
-              <p className="text-gray-500 dark:text-gray-400">
-                {user?.full_name || 'Company'} — Manage jobs, applications, and interns
-              </p>
-            </div>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleRefresh} 
-            disabled={refreshing}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </motion.div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
