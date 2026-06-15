@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { useSharedData } from '../contexts/SharedDataContext';
 import api from '../utils/api';
+import { PrintReport } from './PrintReport';
 
 const statusColor = {
   active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
@@ -303,6 +304,26 @@ export const CompanyDashboard = () => {
             onClick={handleRefresh} 
             disabled={refreshing}
           >
+            <PrintReport 
+        data={{
+          jobs: jobPosts,
+          applications: applications,
+          stats: {
+            activeJobs: activeJobs,
+            totalApplications: totalApplications,
+            activeInterns: activeInterns,
+            totalAttendance: totalAttendance
+          }
+        }} 
+        title="Company Report" 
+        type="company" 
+      />
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={handleRefresh} 
+        disabled={refreshing}
+      ></Button>
             <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>

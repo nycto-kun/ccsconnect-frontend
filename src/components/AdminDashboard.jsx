@@ -20,6 +20,7 @@ import { Progress } from './ui/progress';
 import { toast } from 'sonner';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { PrintReport } from './PrintReport';
 
 export const AdminDashboard = () => {
   const { user } = useAuth();
@@ -238,6 +239,15 @@ export const AdminDashboard = () => {
               <p className="text-gray-500 dark:text-gray-400">Manage users, notices, and track placement progress</p>
             </div>
           </div>
+          <PrintReport 
+      data={{
+        students: students,
+        applications: applications,
+        stats: stats
+      }} 
+      title="Admin Report" 
+      type="admin" 
+    />
           <Button 
             variant="outline" 
             size="sm" 
