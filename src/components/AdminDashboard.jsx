@@ -229,29 +229,28 @@ export const AdminDashboard = () => {
     <div className="max-w-7xl mx-auto px-6 py-12">
       {/* Header */}
       
-      <div className="flex items-center gap-3">
-  <PrintReport 
-    data={{
-      applications: applications,
-      stats: {
-        totalApplications: totalApplications,
-        activeInterns: activeInterns,
-        totalAttendance: totalAttendance
-      }
-    }} 
-    title="Company Report" 
-    type="company" 
-  />
-  <Button 
-    variant="outline" 
-    size="sm" 
-    onClick={handleRefresh} 
-    disabled={refreshing}
-  >
-    <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-    Refresh
-  </Button>
-</div>
+      <motion.div className="mb-10" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center">
+              <Shield className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Admin Dashboard</h1>
+              <p className="text-gray-500 dark:text-gray-400">Manage users, notices, and track placement progress</p>
+            </div>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fetchAdminData} 
+            disabled={refreshing}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+      </motion.div>
 
       
 
