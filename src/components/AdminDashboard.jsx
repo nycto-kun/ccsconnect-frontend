@@ -232,10 +232,8 @@ export const AdminDashboard = () => {
       <div className="flex items-center gap-3">
   <PrintReport 
     data={{
-      jobs: jobPosts,
       applications: applications,
       stats: {
-        activeJobs: activeJobs,
         totalApplications: totalApplications,
         activeInterns: activeInterns,
         totalAttendance: totalAttendance
