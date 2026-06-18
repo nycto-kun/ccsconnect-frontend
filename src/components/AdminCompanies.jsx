@@ -1,5 +1,5 @@
 // src/components/AdminCompanies.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Building, Users, Briefcase, CheckCircle, XCircle, Clock,
@@ -33,6 +33,7 @@ export const AdminCompanies = () => {
   const [showCompanyDetail, setShowCompanyDetail] = useState(false);
   const [companyInterns, setCompanyInterns] = useState([]);
   const [loadingInterns, setLoadingInterns] = useState(false);
+  const [internsLoaded, setInternsLoaded] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     verified: 0,
@@ -42,7 +43,7 @@ export const AdminCompanies = () => {
   });
 
   // Fetch all companies
-  const fetchCompanies = async () => {
+  const fetchCompanies = useCallback(async () => {
     try {
       setRefreshing(true);
       
@@ -88,32 +89,36 @@ export const AdminCompanies = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  // Fetch interns for a specific company
-  const fetchCompanyInterns = async (companyId) => {
+  // Fetch interns for a specific company - memoized
+  const fetchCompanyInterns = useCallback(async (companyId) => {
+    if (!companyId) return;
+    
     try {
       setLoadingInterns(true);
+      setInternsLoaded(false);
       const response = await api.get(`/admin/companies/${companyId}/interns`);
       setCompanyInterns(response.data || []);
+      setInternsLoaded(true);
     } catch (error) {
       console.error('Failed to fetch company interns:', error);
       toast.error('Failed to load interns for this company');
       setCompanyInterns([]);
+      setInternsLoaded(true);
     } finally {
       setLoadingInterns(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCompanies();
-  }, []);
+  }, [fetchCompanies]);
 
   // Handle company verification toggle
-  const handleToggleVerification = async (companyId, currentStatus) => {
+  const handleToggleVerification = useCallback(async (companyId, currentStatus) => {
     try {
       if (currentStatus) {
-        // Unverify - only if admin confirms
         if (!confirm('Are you sure you want to unverify this company?')) return;
         await api.delete(`/admin/companies/${companyId}/verify`);
         toast.success('Company unverified');
@@ -126,10 +131,10 @@ export const AdminCompanies = () => {
       console.error('Failed to toggle verification:', error);
       toast.error(error.response?.data?.detail || 'Failed to update verification');
     }
-  };
+  }, [fetchCompanies]);
 
   // Handle company deletion
-  const handleDeleteCompany = async (companyId, companyName) => {
+  const handleDeleteCompany = useCallback(async (companyId, companyName) => {
     if (!confirm(`Are you sure you want to delete "${companyName}"? This will also delete all associated jobs, applications, and data.`)) {
       return;
     }
@@ -142,10 +147,28 @@ export const AdminCompanies = () => {
       console.error('Failed to delete company:', error);
       toast.error(error.response?.data?.detail || 'Failed to delete company');
     }
-  };
+  }, [fetchCompanies]);
+
+  // Open company detail modal
+  const handleOpenCompanyDetail = useCallback((company) => {
+    setSelectedCompany(company);
+    setShowCompanyDetail(true);
+    setInternsLoaded(false);
+    setCompanyInterns([]);
+    // Fetch interns when modal opens
+    fetchCompanyInterns(company.id);
+  }, [fetchCompanyInterns]);
+
+  // Close company detail modal
+  const handleCloseCompanyDetail = useCallback(() => {
+    setShowCompanyDetail(false);
+    setSelectedCompany(null);
+    setCompanyInterns([]);
+    setInternsLoaded(false);
+  }, []);
 
   // Get filtered companies
-  const getFilteredCompanies = () => {
+  const filteredCompanies = useMemo(() => {
     let filtered = [...companies];
     
     if (searchTerm) {
@@ -169,23 +192,16 @@ export const AdminCompanies = () => {
     }
     
     return filtered;
-  };
+  }, [companies, searchTerm, filterStatus, filterIndustry]);
 
   // Get unique industries for filter
-  const industries = ['all', ...new Set(companies.map(c => c.industry).filter(Boolean))];
-
-  const filteredCompanies = getFilteredCompanies();
+  const industries = useMemo(() => {
+    return ['all', ...new Set(companies.map(c => c.industry).filter(Boolean))];
+  }, [companies]);
 
   // Company Detail Modal with Interns List
-  const CompanyDetailModal = ({ company, onClose }) => {
+  const CompanyDetailModal = React.memo(({ company, onClose, interns, loadingInterns, internsLoaded, onRefresh }) => {
     if (!company) return null;
-
-    // Fetch interns when modal opens
-    React.useEffect(() => {
-      if (company) {
-        fetchCompanyInterns(company.id);
-      }
-    }, [company]);
 
     // Format date
     const formatDate = (dateStr) => {
@@ -299,13 +315,13 @@ export const AdminCompanies = () => {
                   <Users className="w-5 h-5 text-gray-500" />
                   Interns Assigned to {company.name}
                   <Badge variant="secondary" className="ml-2">
-                    {companyInterns.length}
+                    {interns.length}
                   </Badge>
                 </h3>
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => fetchCompanyInterns(company.id)}
+                  onClick={() => onRefresh(company.id)}
                   disabled={loadingInterns}
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${loadingInterns ? 'animate-spin' : ''}`} />
@@ -313,12 +329,12 @@ export const AdminCompanies = () => {
                 </Button>
               </div>
 
-              {loadingInterns ? (
+              {loadingInterns && !internsLoaded ? (
                 <div className="flex justify-center items-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
                   <span className="ml-2 text-gray-500">Loading interns...</span>
                 </div>
-              ) : companyInterns.length === 0 ? (
+              ) : interns.length === 0 ? (
                 <div className="text-center py-8 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                   <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                   <p className="text-gray-500">No interns assigned to this company yet</p>
@@ -326,7 +342,7 @@ export const AdminCompanies = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                  {companyInterns.map((intern, index) => (
+                  {interns.map((intern, index) => (
                     <motion.div
                       key={intern.id || index}
                       initial={{ opacity: 0, y: 10 }}
@@ -448,7 +464,7 @@ export const AdminCompanies = () => {
         </DialogContent>
       </Dialog>
     );
-  };
+  });
 
   if (loading) {
     return (
@@ -689,19 +705,14 @@ export const AdminCompanies = () => {
                             variant="default"
                             size="sm"
                             className="bg-gray-800 hover:bg-gray-700 text-white"
-                            onClick={() => {
-                              setSelectedCompany(company);
-                              setShowCompanyDetail(true);
-                            }}
+                            onClick={() => handleOpenCompanyDetail(company)}
                           >
                             <Eye className="w-4 h-4 mr-1" /> View Details
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              handleToggleVerification(company.id, company.verified);
-                            }}
+                            onClick={() => handleToggleVerification(company.id, company.verified)}
                             className={company.verified ? 'text-yellow-600' : 'text-green-600'}
                           >
                             {company.verified ? (
@@ -779,12 +790,12 @@ export const AdminCompanies = () => {
       {/* Company Detail Modal */}
       {showCompanyDetail && selectedCompany && (
         <CompanyDetailModal 
-          company={selectedCompany} 
-          onClose={() => {
-            setShowCompanyDetail(false);
-            setSelectedCompany(null);
-            setCompanyInterns([]);
-          }}
+          company={selectedCompany}
+          interns={companyInterns}
+          loadingInterns={loadingInterns}
+          internsLoaded={internsLoaded}
+          onClose={handleCloseCompanyDetail}
+          onRefresh={fetchCompanyInterns}
         />
       )}
     </div>
