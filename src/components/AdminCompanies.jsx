@@ -5,7 +5,8 @@ import {
   Building, Users, Briefcase, CheckCircle, XCircle, Clock,
   Search, Filter, Eye, ChevronDown, ChevronUp, RefreshCw,
   Loader2, Mail, Phone, MapPin, Calendar, Award, Star,
-  UserCheck, FileText, TrendingUp, ExternalLink
+  UserCheck, FileText, TrendingUp, ExternalLink, GraduationCap,
+  User, Mail as MailIcon, Calendar as CalendarIcon, ChevronRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Badge } from './ui/badge';
@@ -30,6 +31,8 @@ export const AdminCompanies = () => {
   const [expandedCompany, setExpandedCompany] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [showCompanyDetail, setShowCompanyDetail] = useState(false);
+  const [companyInterns, setCompanyInterns] = useState([]);
+  const [loadingInterns, setLoadingInterns] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     verified: 0,
@@ -84,6 +87,21 @@ export const AdminCompanies = () => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  // Fetch interns for a specific company
+  const fetchCompanyInterns = async (companyId) => {
+    try {
+      setLoadingInterns(true);
+      const response = await api.get(`/admin/companies/${companyId}/interns`);
+      setCompanyInterns(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch company interns:', error);
+      toast.error('Failed to load interns for this company');
+      setCompanyInterns([]);
+    } finally {
+      setLoadingInterns(false);
     }
   };
 
@@ -158,13 +176,46 @@ export const AdminCompanies = () => {
 
   const filteredCompanies = getFilteredCompanies();
 
-  // Company Detail Modal
+  // Company Detail Modal with Interns List
   const CompanyDetailModal = ({ company, onClose }) => {
     if (!company) return null;
-    
+
+    // Fetch interns when modal opens
+    React.useEffect(() => {
+      if (company) {
+        fetchCompanyInterns(company.id);
+      }
+    }, [company]);
+
+    // Format date
+    const formatDate = (dateStr) => {
+      if (!dateStr) return 'N/A';
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    };
+
+    // Get status badge color
+    const getStatusBadge = (status) => {
+      switch (status?.toLowerCase()) {
+        case 'active':
+          return 'bg-green-100 text-green-700';
+        case 'pending':
+          return 'bg-yellow-100 text-yellow-700';
+        case 'completed':
+          return 'bg-blue-100 text-blue-700';
+        case 'terminated':
+          return 'bg-red-100 text-red-700';
+        default:
+          return 'bg-gray-100 text-gray-700';
+      }
+    };
+
     return (
       <Dialog open={true} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <Building className="w-6 h-6 text-gray-600" />
@@ -197,7 +248,7 @@ export const AdminCompanies = () => {
                 <p className="text-sm text-gray-500">Registered</p>
                 <p className="font-medium flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-gray-400" />
-                  {new Date(company.created_at).toLocaleDateString()}
+                  {formatDate(company.created_at)}
                 </p>
               </div>
               {company.website && (
@@ -234,6 +285,134 @@ export const AdminCompanies = () => {
                 <div className="text-2xl font-bold text-orange-600">{company.application_count || 0}</div>
                 <div className="text-sm text-gray-600">Applications</div>
               </div>
+            </div>
+
+            {/* ============================================================
+               INTERNS LIST SECTION
+            ============================================================ */}
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Users className="w-5 h-5 text-gray-500" />
+                  Interns Assigned to {company.name}
+                  <Badge variant="secondary" className="ml-2">
+                    {companyInterns.length}
+                  </Badge>
+                </h3>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => fetchCompanyInterns(company.id)}
+                  disabled={loadingInterns}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loadingInterns ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+
+              {loadingInterns ? (
+                <div className="flex justify-center items-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                  <span className="ml-2 text-gray-500">Loading interns...</span>
+                </div>
+              ) : companyInterns.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                  <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-500">No interns assigned to this company yet</p>
+                  <p className="text-sm text-gray-400 mt-1">Interns will appear here once they are assigned</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                  {companyInterns.map((intern, index) => (
+                    <motion.div
+                      key={intern.id || index}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Avatar */}
+                        <div className="w-10 h-10 bg-gradient-to-br from-gray-600 to-gray-800 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                          {intern.student_name?.charAt(0) || 'S'}
+                        </div>
+                        
+                        {/* Intern Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">
+                              {intern.student_name || 'Unknown Student'}
+                            </h4>
+                            <Badge className={getStatusBadge(intern.status)}>
+                              {intern.status || 'Active'}
+                            </Badge>
+                          </div>
+                          
+                          {intern.roll_number && (
+                            <p className="text-xs text-gray-500 flex items-center gap-1">
+                              <User className="w-3 h-3" /> {intern.roll_number}
+                            </p>
+                          )}
+                          
+                          {intern.email && (
+                            <p className="text-xs text-gray-500 flex items-center gap-1 truncate">
+                              <MailIcon className="w-3 h-3" /> {intern.email}
+                            </p>
+                          )}
+                          
+                          {intern.department && (
+                            <p className="text-xs text-gray-500 flex items-center gap-1">
+                              <GraduationCap className="w-3 h-3" /> {intern.department}
+                              {intern.year && ` • Year ${intern.year}`}
+                            </p>
+                          )}
+                          
+                          {intern.job_title && (
+                            <p className="text-xs text-gray-500 flex items-center gap-1">
+                              <Briefcase className="w-3 h-3" /> {intern.job_title}
+                            </p>
+                          )}
+                          
+                          <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-400">
+                            {intern.start_date && (
+                              <span className="flex items-center gap-1">
+                                <CalendarIcon className="w-3 h-3" /> 
+                                Started: {formatDate(intern.start_date)}
+                              </span>
+                            )}
+                            {intern.end_date && (
+                              <span className="flex items-center gap-1">
+                                <CalendarIcon className="w-3 h-3" /> 
+                                Ends: {formatDate(intern.end_date)}
+                              </span>
+                            )}
+                            {intern.total_required_hours && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" /> 
+                                {intern.total_required_hours}h required
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Progress Bar for hours */}
+                          {intern.total_required_hours && intern.completed_hours !== undefined && (
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                <span>Progress</span>
+                                <span>{Math.min(100, Math.round((intern.completed_hours / intern.total_required_hours) * 100))}%</span>
+                              </div>
+                              <Progress 
+                                value={Math.min(100, Math.round((intern.completed_hours / intern.total_required_hours) * 100))} 
+                                className="h-1.5"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </div>
             
             {/* Action Buttons */}
@@ -504,14 +683,15 @@ export const AdminCompanies = () => {
                         </div>
                         <div className="flex gap-2">
                           <Button 
-                            variant="ghost" 
+                            variant="default"
                             size="sm"
+                            className="bg-gray-800 hover:bg-gray-700 text-white"
                             onClick={() => {
                               setSelectedCompany(company);
                               setShowCompanyDetail(true);
                             }}
                           >
-                            <Eye className="w-4 h-4 mr-1" /> View
+                            <Eye className="w-4 h-4 mr-1" /> View Details
                           </Button>
                           <Button
                             variant="ghost"
@@ -578,6 +758,8 @@ export const AdminCompanies = () => {
                               )}
                               <p><span className="text-gray-500">Company Code:</span> {company.company_code || 'N/A'}</p>
                               <p><span className="text-gray-500">Created:</span> {new Date(company.created_at).toLocaleString()}</p>
+                              <p><span className="text-gray-500">Interns:</span> {company.intern_count || 0}</p>
+                              <p><span className="text-gray-500">Jobs Posted:</span> {company.job_count || 0}</p>
                             </div>
                           </div>
                         </div>
@@ -598,6 +780,7 @@ export const AdminCompanies = () => {
           onClose={() => {
             setShowCompanyDetail(false);
             setSelectedCompany(null);
+            setCompanyInterns([]);
           }}
         />
       )}
