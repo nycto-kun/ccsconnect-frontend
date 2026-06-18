@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { PrintReport } from './PrintReport';
+import { AdminCompanies } from './AdminCompanies'; // <-- NEW IMPORT
 
 export const AdminDashboard = () => {
   const { user } = useAuth();
@@ -331,6 +332,9 @@ export const AdminDashboard = () => {
           <TabsTrigger value="companies" className="rounded-lg">
             <Building className="w-4 h-4 mr-2" /> Company Approvals
           </TabsTrigger>
+          <TabsTrigger value="all-companies" className="rounded-lg">
+            <Building className="w-4 h-4 mr-2" /> All Companies
+          </TabsTrigger>
           <TabsTrigger value="students" className="rounded-lg">
             <Users className="w-4 h-4 mr-2" /> Students
           </TabsTrigger>
@@ -551,6 +555,11 @@ export const AdminDashboard = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ALL COMPANIES TAB - NEW */}
+        <TabsContent value="all-companies" className="space-y-6">
+          <AdminCompanies />
         </TabsContent>
 
         {/* STUDENTS TAB */}
