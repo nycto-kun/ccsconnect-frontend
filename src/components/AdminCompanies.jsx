@@ -14,7 +14,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Progress } from './ui/progress';
 import { toast } from 'sonner';
 import api from '../utils/api';
@@ -224,6 +224,9 @@ export const AdminCompanies = () => {
                 {company.verified ? '✓ Verified' : 'Pending'}
               </Badge>
             </DialogTitle>
+            <DialogDescription>
+              View company details and manage assigned interns
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-6">
